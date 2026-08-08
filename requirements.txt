@@ -1,14 +1,3 @@
-# ── Web framework ─────────────────────────────────────────────────────────────
-flask==3.0.3
-
-# ── CrewAI core (pins a stable release; bump as needed) ───────────────────────
-crewai==0.80.0
-
-# ── Pydantic – used internally by CrewAI for model validation ─────────────────
-pydantic==2.7.4
-
-# ── OpenAI SDK – required by the LiteLLM transport inside CrewAI ──────────────
-openai>=1.35.0,<2.0.0
-
-# ── Misc utilities pulled in by CrewAI that must be explicit on Vercel ─────────
-litellm>=1.40.0
+flask
+crewai
+gunicorn
