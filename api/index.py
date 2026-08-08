@@ -20,7 +20,7 @@ def run_agents():
     try:
         # Agent 1: Loan Accounting Engine
         task1 = client.chat.completions.create(
-            model="openai/moonshotai/kimi-k3-free",
+            model="openai/gpt-4o-mini",
             messages=[
                 {"role": "system", "content": "You are a Loan Accounting Engine and NBFC expert focusing on Python Decimal logic."},
                 {"role": "user", "content": "Write concise Python code using `decimal.Decimal` to calculate monthly EMI for a loan of ₹40,000 at 12% flat rate for 12 months."}
