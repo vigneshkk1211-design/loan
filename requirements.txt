@@ -1,6 +1,3 @@
-wheel
-setuptools
-tiktoken
-crewai>=0.80.0
 flask
+openai
 gunicorn
