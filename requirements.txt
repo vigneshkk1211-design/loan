@@ -1,6 +1,6 @@
 wheel
 setuptools
 tiktoken
-crewai
+crewai>=0.80.0
 flask
 gunicorn
