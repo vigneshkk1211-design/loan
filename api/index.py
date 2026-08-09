@@ -4,29 +4,29 @@ from openai import OpenAI
 
 app = Flask(__name__)
 
-API_KEY = os.environ.get("OPENAI_API_KEY", "sk-dmr3ZOwsSIaS12i7IrN3IIinTTdLbHoCbI0F92u3AiF0AV7u")
+API_KEY = os.environ.get("OPENAI_API_KEY", "sk-DH4CYi8Aj3Gsul8ggnEgg7UZ7VyLalEJ2VNjcp1gH74Z0KWG")
 
 client = OpenAI(
     api_key=API_KEY,
     base_url="https://api.tokenrouter.com/v1"
 )
 
-# TokenRouter-இல் அணுகக்கூடிய சாத்தியமான மாடல்களின் பட்டியல்
-CANDIDATE_MODELS = [
-    "openai/gpt-3.5-turbo",
-    "gpt-3.5-turbo",
+# TokenRouter / OpenRouter-இல் உள்ள இலவச மாடல்களின் பட்டியல்
+FREE_MODELS = [
     "google/gemini-2.0-flash-exp:free",
-    "meta-llama/llama-3.3-70b-instruct",
-    "openai/moonshotai/kimi-k3-free"
+    "meta-llama/llama-3.3-70b-instruct:free",
+    "deepseek/deepseek-r1:free",
+    "qwen/qwen-2.5-coder-32b-instruct:free",
+    "mistralai/mistral-7b-instruct:free"
 ]
 
-def generate_completion(system_prompt, user_prompt):
-    """ஒரு மாடலில் 403 எரர் வந்தால் தானாக அடுத்த மாடலை முயற்சி செய்யும் ஃபங்க்ஷன்"""
-    last_error = None
-    for model in CANDIDATE_MODELS:
+def call_ai(system_prompt, user_prompt):
+    """403 எரர் வந்தால் தானாக அடுத்த இலவச மாடலை முயற்சி செய்யும் பங்க்ஷன்"""
+    last_err = None
+    for model_name in FREE_MODELS:
         try:
             response = client.chat.completions.create(
-                model=model,
+                model=model_name,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
@@ -34,9 +34,10 @@ def generate_completion(system_prompt, user_prompt):
             )
             return response.choices[0].message.content
         except Exception as e:
-            last_error = str(e)
-            continue
-    raise Exception(f"All models failed. Last error: {last_error}")
+            last_err = str(e)
+            continue  # 403 அல்லது வேறு எரர் வந்தால் அடுத்த மாடலுக்குச் செல்லும்
+            
+    raise Exception(f"All free models failed. Last error: {last_err}")
 
 @app.route('/health', methods=['GET'])
 def health():
@@ -47,19 +48,19 @@ def health():
 def run_agents():
     try:
         # Task 1: Loan Accounting Engine
-        task1 = generate_completion(
+        task1 = call_ai(
             system_prompt="You are a Loan Accounting Engine and NBFC expert focusing on Python Decimal logic.",
             user_prompt="Write concise Python code using `decimal.Decimal` to calculate monthly EMI for a loan of ₹40,000 at 12% flat rate for 12 months."
         )
 
         # Task 2: Field Collection Lead
-        task2 = generate_completion(
+        task2 = call_ai(
             system_prompt="You are a Field Collection Lead who designs secure real-time OTP collection workflows.",
             user_prompt="Outline 4 key API steps for generating and verifying a 6-digit WhatsApp OTP during field collection."
         )
 
         # Task 3: RBI Compliance Specialist
-        task3 = generate_completion(
+        task3 = call_ai(
             system_prompt="You are an RBI Compliance Specialist ensuring MFI compliance and grievance routing.",
             user_prompt="List 3 mandatory steps to log RBI Fair Practices Code disclosure before loan approval."
         )
