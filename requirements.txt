@@ -1,2 +1,14 @@
 flask
 openai
+fastapi
+uvicorn[standard]
+pydantic>=2.0
+python-jose[cryptography]
+a2wsgi
+crewai
+httpx
+# ── Dev / Test ──────────────────────────────────────────────────
+python-dotenv
+pytest>=7.0
+pytest-asyncio>=0.23
+pytest-cov

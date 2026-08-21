@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FinFlow NBFC — AI-Powered MicroFinance Dashboard</title>
+  <meta name="description" content="AI-powered NBFC dashboard with EMI calculation, WhatsApp OTP authentication, and RBI compliance verification powered by CrewAI agents." />
+  <meta name="keywords" content="NBFC, MFI, microfinance, loan calculator, RBI compliance, KFS, OTP" />
+
+  <!-- TailwindCSS Play CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+          animation: {
+            'slide-up':       'slideUp 0.35s cubic-bezier(0.16,1,0.3,1)',
+            'slide-right':    'slideRight 0.3s ease-out',
+            'fade-in':        'fadeIn 0.2s ease-out',
+            'spin-slow':      'spin 2.4s linear infinite',
+            'pulse-soft':     'pulseSoft 2s ease-in-out infinite',
+            'bounce-in':      'bounceIn 0.5s cubic-bezier(0.36,0.07,0.19,0.97)',
+          },
+          keyframes: {
+            slideUp:    { '0%': { transform:'translateY(18px)', opacity:'0' }, '100%': { transform:'translateY(0)', opacity:'1' } },
+            slideRight: { '0%': { transform:'translateX(110%)', opacity:'0' }, '100%': { transform:'translateX(0)', opacity:'1' } },
+            fadeIn:     { '0%': { opacity:'0' }, '100%': { opacity:'1' } },
+            pulseSoft:  { '0%,100%': { opacity:'1' }, '50%': { opacity:'0.5' } },
+            bounceIn:   { '0%': { transform:'scale(0.85)', opacity:'0' }, '70%': { transform:'scale(1.05)' }, '100%': { transform:'scale(1)', opacity:'1' } },
+          },
+        },
+      },
+    };
+  </script>
+
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { font-family: 'Inter', sans-serif; }
+
+    /* ── Custom scrollbar ──────────────────────────────── */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 99px; }
+    ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+    /* ── Gradient text ─────────────────────────────────── */
+    .g-text {
+      background: linear-gradient(135deg, #818cf8 0%, #a78bfa 50%, #c084fc 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .g-text-green {
+      background: linear-gradient(135deg, #34d399, #10b981);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    /* ── OTP digit inputs ──────────────────────────────── */
+    .otp-box {
+      width: 50px; height: 58px;
+      text-align: center; font-size: 1.625rem; font-weight: 700;
+      border-radius: 12px; border: 2px solid #334155;
+      background: #1e293b; color: #f8fafc; outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+      caret-color: transparent;
+    }
+    .otp-box:focus        { border-color: #6366f1; background: #1c1c3a; box-shadow: 0 0 0 4px rgba(99,102,241,0.18); }
+    .otp-box.filled       { border-color: #818cf8; background: #1c1c3a; }
+    .otp-box.otp-error    { border-color: #ef4444; animation: shake 0.45s ease; }
+
+    html:not(.dark) .otp-box             { background: #f8fafc; border-color: #e2e8f0; color: #0f172a; }
+    html:not(.dark) .otp-box:focus       { background: #fff; }
+    html:not(.dark) .otp-box.filled      { background: #eef2ff; border-color: #6366f1; }
+
+    @keyframes shake {
+      0%,100% { transform: translateX(0); }
+      20%,60%  { transform: translateX(-5px); }
+      40%,80%  { transform: translateX(5px); }
+    }
+
+    /* ── Range sliders ─────────────────────────────────── */
+    input[type=range] { -webkit-appearance: none; height: 4px; border-radius: 2px; background: #334155; outline: none; cursor: pointer; }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%;
+      background: #6366f1; border: 2px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    }
+    html:not(.dark) input[type=range] { background: #e2e8f0; }
+
+    /* ── Tab underline ─────────────────────────────────── */
+    .tab-active { border-bottom: 2px solid #6366f1; }
+    .tab-inactive { border-bottom: 2px solid transparent; }
+
+    /* ── Card hover lift ───────────────────────────────── */
+    .card-lift { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+    .card-lift:hover { transform: translateY(-3px); box-shadow: 0 20px 40px rgba(0,0,0,0.15); }
+
+    /* ── Delivery step icons ───────────────────────────── */
+    .step-done   .step-icon { background: #10b981; border-color: #10b981; }
+    .step-active .step-icon { background: #6366f1; border-color: #6366f1; box-shadow: 0 0 0 5px rgba(99,102,241,0.2); }
+    .step-pending .step-icon { background: transparent; border-color: #334155; }
+
+    /* ── Metric number animation ───────────────────────── */
+    .metric-val { transition: all 0.4s ease; }
+
+    /* ── Connector line ────────────────────────────────── */
+    .connector { height: 2px; flex: 1; background: #1e293b; margin-bottom: 28px; transition: background 0.4s ease; }
+    .connector.done { background: #10b981; }
+
+    /* ── Toast ─────────────────────────────────────────── */
+    .toast-item { animation: slideRight 0.3s ease-out; pointer-events: auto; }
+  </style>
+</head>
+
+<body class="dark:bg-slate-950 bg-slate-50 dark:text-slate-100 text-slate-900 transition-colors duration-200 min-h-screen">
+
+<!-- ══════════════════════════════════════════ TOAST CONTAINER ═══ -->
+<div id="toastContainer"
+     class="fixed top-4 right-4 z-[200] flex flex-col gap-2 pointer-events-none min-w-72 max-w-sm"
+     aria-live="polite" role="status"></div>
+
+<!-- ══════════════════════════════════════════════ OTP MODAL ═════ -->
+<div id="otpModal"
+     class="fixed inset-0 z-50 hidden items-center justify-center p-4"
+     role="dialog" aria-modal="true" aria-labelledby="otpModalTitle">
+
+  <!-- Backdrop -->
+  <div id="otpBackdrop" class="absolute inset-0 bg-black/70 backdrop-blur-md"></div>
+
+  <!-- Card -->
+  <div class="relative dark:bg-slate-900 bg-white border dark:border-slate-700 border-slate-200
+              rounded-2xl p-8 w-full max-w-sm shadow-2xl shadow-black/60 animate-bounce-in">
+
+    <!-- Close button -->
+    <button id="otpModalClose"
+            class="absolute top-4 right-4 w-8 h-8 rounded-lg dark:bg-slate-800 bg-slate-100
+                   flex items-center justify-center dark:text-slate-400 text-slate-500
+                   dark:hover:bg-slate-700 hover:bg-slate-200 transition-colors"
+            aria-label="Close">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+      </svg>
+    </button>
+
+    <!-- Header -->
+    <div class="text-center mb-6">
+      <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600
+                  flex items-center justify-center mx-auto mb-4 shadow-lg shadow-indigo-500/30">
+        <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+        </svg>
+      </div>
+      <h2 id="otpModalTitle" class="text-xl font-bold dark:text-white text-slate-900">Verify OTP</h2>
+      <p class="text-sm dark:text-slate-400 text-slate-500 mt-1">
+        Code sent to
+        <span id="otpPhoneDisplay" class="font-semibold dark:text-indigo-400 text-indigo-600"></span>
+      </p>
+    </div>
+
+    <!-- 6-Digit OTP Inputs -->
+    <div class="flex justify-center gap-2 mb-4" id="otpDigitRow">
+      <input class="otp-box" type="text" inputmode="numeric" maxlength="1" data-i="0" id="otp0" autocomplete="one-time-code" aria-label="Digit 1">
+      <input class="otp-box" type="text" inputmode="numeric" maxlength="1" data-i="1" id="otp1" aria-label="Digit 2">
+      <input class="otp-box" type="text" inputmode="numeric" maxlength="1" data-i="2" id="otp2" aria-label="Digit 3">
+      <input class="otp-box" type="text" inputmode="numeric" maxlength="1" data-i="3" id="otp3" aria-label="Digit 4">
+      <input class="otp-box" type="text" inputmode="numeric" maxlength="1" data-i="4" id="otp4" aria-label="Digit 5">
+      <input class="otp-box" type="text" inputmode="numeric" maxlength="1" data-i="5" id="otp5" aria-label="Digit 6">
+    </div>
+
+    <!-- Timer -->
+    <p class="text-center text-sm dark:text-slate-400 text-slate-500 mb-5">
+      Expires in
+      <span id="otpTimer" class="font-bold tabular-nums dark:text-white text-slate-900">3:00</span>
+    </p>
+
+    <!-- Verify Button -->
+    <button id="otpVerifyBtn"
+            class="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed
+                   text-white font-semibold py-3 rounded-xl transition-all duration-200 active:scale-95 mb-3">
+      Verify OTP
+    </button>
+
+    <!-- Resend -->
+    <p class="text-center text-sm dark:text-slate-500 text-slate-400">
+      Didn't receive it?
+      <button id="otpResendBtn" disabled
+              class="font-semibold text-indigo-500 hover:text-indigo-400
+                     disabled:text-slate-500 disabled:cursor-not-allowed transition-colors ml-1">
+        Resend <span id="resendCountdown" class="tabular-nums"></span>
+      </button>
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ APP SHELL ═ -->
+<div class="flex flex-col min-h-screen">
+
+  <!-- ──────────────────────────────────────────── NAVBAR ───────── -->
+  <nav class="sticky top-0 z-30 dark:bg-slate-950/90 bg-white/90 backdrop-blur-md
+              dark:border-b dark:border-slate-800 border-b border-slate-200">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+
+      <!-- Logo -->
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600
+                    flex items-center justify-center shadow-lg shadow-indigo-500/30 flex-shrink-0">
+          <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                  d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0
+                     2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9
+                     9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+        </div>
+        <div>
+          <p class="font-bold dark:text-white text-slate-900 text-sm leading-tight">FinFlow NBFC</p>
+          <p class="text-xs dark:text-slate-500 text-slate-400">MicroFinance Platform</p>
+        </div>
+      </div>
+
+      <!-- Right Controls -->
+      <div class="flex items-center gap-3">
+        <!-- API Status -->
+        <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full
+                    dark:bg-emerald-500/10 bg-emerald-50
+                    dark:border dark:border-emerald-500/20 border border-emerald-100">
+          <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
+          <span class="text-xs font-semibold dark:text-emerald-400 text-emerald-600">API Online</span>
+        </div>
+
+        <!-- Swagger link -->
+        <a href="/docs" target="_blank"
+           class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium
+                  dark:bg-slate-800 bg-slate-100 dark:text-slate-400 text-slate-500
+                  dark:hover:bg-slate-700 hover:bg-slate-200 transition-colors">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+          </svg>
+          Swagger
+        </a>
+
+        <!-- Theme Toggle -->
+        <button id="themeToggle"
+                class="w-10 h-10 rounded-xl dark:bg-slate-800 bg-slate-100
+                       dark:hover:bg-slate-700 hover:bg-slate-200
+                       flex items-center justify-center transition-all duration-200 active:scale-95 text-lg"
+                aria-label="Toggle theme" title="Toggle dark/light mode">
+          <span id="themeIcon">☀️</span>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ───────────────────────────────────────── HERO BANNER ─────── -->
+  <div class="relative overflow-hidden dark:bg-slate-950 bg-slate-50 pb-2">
+    <!-- Ambient glow blobs -->
+    <div class="absolute pointer-events-none inset-0 overflow-hidden">
+      <div class="absolute -top-32 -right-32 w-80 h-80 rounded-full bg-indigo-600/10 blur-3xl"></div>
+      <div class="absolute top-1/2 -left-24 w-64 h-64 rounded-full bg-violet-600/10 blur-3xl"></div>
+    </div>
+
+    <div class="relative max-w-7xl mx-auto px-4 sm:px-6 py-10">
+      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+
+        <!-- Title -->
+        <div>
+          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full mb-3
+                      dark:bg-indigo-500/10 bg-indigo-50
+                      dark:border dark:border-indigo-500/20 border border-indigo-100">
+            <span class="text-xs font-bold dark:text-indigo-400 text-indigo-600 uppercase tracking-widest">
+              CrewAI Agent Platform v1.0
+            </span>
+          </div>
+          <h1 class="text-3xl sm:text-4xl font-extrabold dark:text-white text-slate-900 leading-tight">
+            MicroFinance <span class="g-text">Dashboard</span>
+          </h1>
+          <p class="text-sm dark:text-slate-400 text-slate-500 mt-2 max-w-md leading-relaxed">
+            Three AI agents: EMI engine, WhatsApp OTP auth, and RBI compliance verification —
+            all production-ready with full Swagger UI.
+          </p>
+        </div>
+
+        <!-- Stats -->
+        <div class="grid grid-cols-3 gap-3 flex-shrink-0">
+          <div class="card-lift text-center px-4 py-3 dark:bg-slate-900 bg-white rounded-xl
+                      dark:border dark:border-slate-800 border border-slate-200 shadow-sm">
+            <p class="text-xl font-extrabold dark:text-white text-slate-900">₹40K</p>
+            <p class="text-xs dark:text-slate-500 text-slate-400 mt-0.5">Avg. Loan</p>
+          </div>
+          <div class="card-lift text-center px-4 py-3 dark:bg-slate-900 bg-white rounded-xl
+                      dark:border dark:border-slate-800 border border-slate-200 shadow-sm">
+            <p class="text-xl font-extrabold dark:text-amber-400 text-amber-600">21.5%</p>
+            <p class="text-xs dark:text-slate-500 text-slate-400 mt-0.5">Eff. APR</p>
+          </div>
+          <div class="card-lift text-center px-4 py-3 dark:bg-slate-900 bg-white rounded-xl
+                      dark:border dark:border-slate-800 border border-slate-200 shadow-sm">
+            <p class="text-xl font-extrabold g-text-green">✓ RBI</p>
+            <p class="text-xs dark:text-slate-500 text-slate-400 mt-0.5">Compliant</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ────────────────────────────────────────────── TAB BAR ─────── -->
+  <div class="dark:bg-slate-950 bg-slate-50 dark:border-b dark:border-slate-800 border-b border-slate-200
+              sticky top-16 z-20">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 flex overflow-x-auto">
+
+      <button id="tab-loan"
+              onclick="TabManager.switch('loan')"
+              class="tab-active flex items-center gap-2 px-5 py-4 text-sm font-semibold whitespace-nowrap
+                     dark:text-indigo-400 text-indigo-600 transition-all">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 11h.01M12 11h.01M15 11h.01
+                   M4 19h16a2 2 0 002-2V7a2 2 0 00-2-2H4a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+        </svg>
+        Loan Calculator
+      </button>
+
+      <button id="tab-otp"
+              onclick="TabManager.switch('otp')"
+              class="tab-inactive flex items-center gap-2 px-5 py-4 text-sm font-medium whitespace-nowrap
+                     dark:text-slate-400 text-slate-500 dark:hover:text-slate-200 hover:text-slate-700 transition-all">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+        </svg>
+        OTP Verification
+      </button>
+
+      <button id="tab-compliance"
+              onclick="TabManager.switch('compliance')"
+              class="tab-inactive flex items-center gap-2 px-5 py-4 text-sm font-medium whitespace-nowrap
+                     dark:text-slate-400 text-slate-500 dark:hover:text-slate-200 hover:text-slate-700 transition-all">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955
+                   0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622
+                   5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+        </svg>
+        RBI Compliance &amp; KFS
+      </button>
+
+    </div>
+  </div>
+
+  <!-- ─────────────────────────────────────── MAIN CONTENT ────────── -->
+  <main class="flex-1 max-w-7xl mx-auto px-4 sm:px-6 py-8 w-full">
+
+    <!-- ══════════════════════════ LOAN CALCULATOR PANEL ══════════ -->
+    <div id="panel-loan" class="panel">
+      <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+
+        <!-- ── Inputs ── -->
+        <div class="lg:col-span-2 dark:bg-slate-900 bg-white rounded-2xl
+                    dark:border dark:border-slate-800 border border-slate-200 p-6 shadow-xl shadow-black/5">
+          <div class="flex items-center gap-3 mb-6">
+            <div class="w-9 h-9 rounded-xl bg-indigo-500/15 flex items-center justify-center">
+              <svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0
+                         2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"/>
+              </svg>
+            </div>
+            <div>
+              <p class="font-bold dark:text-white text-slate-900 text-sm">Loan Parameters</p>
+              <p class="text-xs dark:text-slate-500 text-slate-400">Flat-rate · Decimal precision</p>
+            </div>
+          </div>
+
+          <!-- Principal -->
+          <div class="mb-5">
+            <label class="block text-xs font-semibold dark:text-slate-400 text-slate-500 uppercase tracking-wide mb-2">
+              Principal Amount
+            </label>
+            <div class="relative">
+              <span class="absolute left-3.5 top-1/2 -translate-y-1/2 font-bold text-sm dark:text-slate-400 text-slate-400">₹</span>
+              <input type="number" id="principal" value="40000" min="1000" max="1000000" step="500"
+                     class="w-full pl-8 pr-4 py-3 dark:bg-slate-800 bg-slate-50
+                            dark:border-slate-700 border-slate-200 border rounded-xl
+                            dark:text-white text-slate-900 text-sm font-semibold
+                            focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all">
+            </div>
+            <input type="range" id="principalSlider" min="5000" max="500000" step="1000" value="40000" class="w-full mt-2">
+            <div class="flex justify-between text-xs dark:text-slate-600 text-slate-400 mt-0.5">
+              <span>₹5K</span><span>₹5L</span>
+            </div>
+          </div>
+
+          <!-- Rate -->
+          <div class="mb-5">
+            <label class="block text-xs font-semibold dark:text-slate-400 text-slate-500 uppercase tracking-wide mb-2">
+              Annual Interest Rate
+            </label>
+            <div class="relative">
+              <input type="number" id="annual_rate" value="12" min="1" max="36" step="0.5"
+                     class="w-full pr-10 pl-4 py-3 dark:bg-slate-800 bg-slate-50
+                            dark:border-slate-700 border-slate-200 border rounded-xl
+                            dark:text-white text-slate-900 text-sm font-semibold
+                            focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all">
+              <span class="absolute right-4 top-1/2 -translate-y-1/2 font-bold text-sm dark:text-slate-400 text-slate-400">%</span>
+            </div>
+            <input type="range" id="rateSlider" min="8" max="36" step="0.5" value="12" class="w-full mt-2">
+            <div class="flex justify-between text-xs dark:text-slate-600 text-slate-400 mt-0.5">
+              <span>8%</span><span>36%</span>
+            </div>
+          </div>
+
+          <!-- Tenure -->
+          <div class="mb-6">
+            <label class="block text-xs font-semibold dark:text-slate-400 text-slate-500 uppercase tracking-wide mb-2">
+              Loan Tenure
+            </label>
+            <div class="relative">
+              <input type="number" id="tenure_months" value="12" min="1" max="84"
+                     class="w-full pr-20 pl-4 py-3 dark:bg-slate-800 bg-slate-50
+                            dark:border-slate-700 border-slate-200 border rounded-xl
+                            dark:text-white text-slate-900 text-sm font-semibold
+                            focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all">
+              <span class="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold dark:text-slate-400 text-slate-400">months</span>
+            </div>
+            <div class="flex gap-1.5 mt-2 flex-wrap">
+              <button onclick="LoanCalculator.setTenure(6)"  class="tenure-q px-3 py-1 text-xs rounded-lg font-semibold transition-all">6M</button>
+              <button onclick="LoanCalculator.setTenure(12)" class="tenure-q px-3 py-1 text-xs rounded-lg font-semibold transition-all">12M</button>
+              <button onclick="LoanCalculator.setTenure(18)" class="tenure-q px-3 py-1 text-xs rounded-lg font-semibold transition-all">18M</button>
+              <button onclick="LoanCalculator.setTenure(24)" class="tenure-q px-3 py-1 text-xs rounded-lg font-semibold transition-all">24M</button>
+              <button onclick="LoanCalculator.setTenure(36)" class="tenure-q px-3 py-1 text-xs rounded-lg font-semibold transition-all">36M</button>
+            </div>
+          </div>
+
+          <!-- Calculate Button -->
+          <button id="calcBtn" onclick="LoanCalculator.calculate()"
+                  class="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold
+                         text-white bg-gradient-to-r from-indigo-600 to-violet-600
+                         hover:from-indigo-500 hover:to-violet-500
+                         shadow-lg shadow-indigo-500/25 active:scale-95 transition-all duration-200
+                         disabled:opacity-60 disabled:cursor-not-allowed">
+            <svg id="calcIcon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 11h.01M12 11h.01M15 11h.01
+                       M4 19h16a2 2 0 002-2V7a2 2 0 00-2-2H4a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+            </svg>
+            <span id="calcBtnText">Calculate EMI</span>
+          </button>
+        </div>
+
+        <!-- ── Results ── -->
+        <div class="lg:col-span-3 flex flex-col gap-4">
+
+          <!-- Placeholder -->
+          <div id="loanPlaceholder" class="flex-1 dark:bg-slate-900/40 bg-white/60 rounded-2xl border border-dashed
+                                           dark:border-slate-800 border-slate-200 flex flex-col items-center justify-center py-20 text-center">
+            <div class="w-16 h-16 dark:bg-slate-800 bg-slate-100 rounded-2xl flex items-center justify-center mb-4">
+              <svg class="w-8 h-8 dark:text-slate-600 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                      d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 11h.01M12 11h.01M15 11h.01
+                         M4 19h16a2 2 0 002-2V7a2 2 0 00-2-2H4a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+              </svg>
+            </div>
+            <p class="font-semibold dark:text-slate-500 text-slate-400">Enter details and click "Calculate EMI"</p>
+            <p class="text-sm dark:text-slate-600 text-slate-300 mt-1">Results appear here in real-time</p>
+          </div>
+
+          <!-- Results Grid (hidden until first calc) -->
+          <div id="loanResults" class="hidden flex-col gap-4">
+            <!-- Metric Cards -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div class="card-lift dark:bg-slate-900 bg-white rounded-2xl dark:border dark:border-slate-800 border border-slate-200 p-5 shadow-xl shadow-black/5">
+                <div class="flex items-center gap-2 mb-3">
+                  <div class="w-7 h-7 rounded-lg bg-amber-500/15 flex items-center justify-center">
+                    <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"/>
+                    </svg>
+                  </div>
+                  <span class="text-xs font-semibold dark:text-slate-400 text-slate-500">Total Interest</span>
+                </div>
+                <p id="resInterest" class="metric-val text-2xl font-extrabold text-amber-500 tabular-nums">₹0.00</p>
+                <p class="text-xs dark:text-slate-600 text-slate-400 mt-1">Flat rate charge</p>
+              </div>
+
+              <div class="card-lift dark:bg-slate-900 bg-white rounded-2xl dark:border dark:border-slate-800 border border-slate-200 p-5 shadow-xl shadow-black/5">
+                <div class="flex items-center gap-2 mb-3">
+                  <div class="w-7 h-7 rounded-lg bg-violet-500/15 flex items-center justify-center">
+                    <svg class="w-4 h-4 text-violet-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0
+                               002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/>
+                    </svg>
+                  </div>
+                  <span class="text-xs font-semibold dark:text-slate-400 text-slate-500">Total Payable</span>
+                </div>
+                <p id="resTotal" class="metric-val text-2xl font-extrabold text-violet-500 tabular-nums">₹0.00</p>
+                <p class="text-xs dark:text-slate-600 text-slate-400 mt-1">Principal + Interest</p>
+              </div>
+
+              <div class="card-lift dark:bg-slate-900 bg-white rounded-2xl dark:border dark:border-slate-800 border border-slate-200 p-5 shadow-xl shadow-black/5">
+                <div class="flex items-center gap-2 mb-3">
+                  <div class="w-7 h-7 rounded-lg bg-emerald-500/15 flex items-center justify-center">
+                    <svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                    </svg>
+                  </div>
+                  <span class="text-xs font-semibold dark:text-slate-400 text-slate-500">Monthly EMI</span>
+                </div>
+                <p id="resEMI" class="metric-val text-2xl font-extrabold text-emerald-500 tabular-nums">₹0.00</p>
+                <p class="text-xs dark:text-slate-600 text-slate-400 mt-1">Equal monthly instalment</p>
+              </div>
+            </div>
+
+            <!-- Breakdown Card -->
+            <div class="dark:bg-slate-900 bg-white rounded-2xl dark:border dark:border-slate-800 border border-slate-200 p-6 shadow-xl shadow-black/5">
+              <div class="flex items-center justify-between mb-4">
+                <h3 class="font-bold dark:text-white text-slate-900 text-sm">Loan Breakdown</h3>
+                <span class="px-2.5 py-1 text-xs rounded-full dark:bg-slate-800 bg-slate-100
+                             dark:text-slate-400 text-slate-500 font-medium">Flat Rate Method</span>
+              </div>
+
+              <!-- Visual bar -->
+              <div class="mb-4">
+                <div class="flex rounded-full overflow-hidden h-2.5 mb-2">
+                  <div id="barPrincipal" class="bg-indigo-500 transition-all duration-700" style="width:89%"></div>
+                  <div id="barInterest"  class="bg-amber-500 transition-all duration-700" style="width:11%"></div>
+                </div>
+                <div class="flex gap-4 text-xs">
+                  <div class="flex items-center gap-1.5"><div class="w-2 h-2 rounded-full bg-indigo-500"></div><span class="dark:text-slate-400 text-slate-500">Principal</span></div>
+                  <div class="flex items-center gap-1.5"><div class="w-2 h-2 rounded-full bg-amber-500"></div><span class="dark:text-slate-400 text-slate-500">Interest</span></div>
+                </div>
+              </div>
+
+              <div class="space-y-2.5">
+                <div class="flex justify-between py-2 dark:border-b dark:border-slate-800 border-b border-slate-100">
+                  <span class="text-sm dark:text-slate-400 text-slate-500">Principal</span>
+                  <span id="dtPrincipal" class="text-sm font-semibold dark:text-white text-slate-900 tabular-nums">—</span>
+                </div>
+                <div class="flex justify-between py-2 dark:border-b dark:border-slate-800 border-b border-slate-100">
+                  <span class="text-sm dark:text-slate-400 text-slate-500">Annual Rate</span>
+                  <span id="dtRate" class="text-sm font-semibold dark:text-white text-slate-900 tabular-nums">—</span>
+                </div>
+                <div class="flex justify-between py-2 dark:border-b dark:border-slate-800 border-b border-slate-100">
+                  <span class="text-sm dark:text-slate-400 text-slate-500">Tenure</span>
+                  <span id="dtTenure" class="text-sm font-semibold dark:text-white text-slate-900 tabular-nums">—</span>
+                </div>
+                <div class="flex justify-between py-2 dark:border-b dark:border-slate-800 border-b border-slate-100">
+                  <span class="text-sm dark:text-slate-400 text-slate-500">Total Interest</span>
+                  <span id="dtInterest" class="text-sm font-semibold text-amber-500 tabular-nums">—</span>
+                </div>
+                <div class="flex justify-between py-2">
+                  <span class="text-sm font-bold dark:text-white text-slate-900">Total Payable</span>
+                  <span id="dtPayable" class="text-sm font-bold dark:text-white text-slate-900 tabular-nums">—</span>
+                </div>
+              </div>
+
+              <!-- APR Note -->
+              <div class="mt-4 p-3 rounded-xl dark:bg-amber-500/5 bg-amber-50
+                          dark:border dark:border-amber-500/10 border border-amber-100">
+                <p class="text-xs dark:text-amber-400 text-amber-700 leading-relaxed">
+                  <span class="font-bold">ℹ️ APR Transparency:</span>
+                  Flat <span id="aprFlat">12%</span> ≈ Effective APR
+                  <span id="aprEff" class="font-bold">~21.46%</span> (reducing-balance equivalent).
+                  Mandatory disclosure per RBI FPC 2023.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════ OTP VERIFICATION PANEL ═════════ -->
+    <div id="panel-otp" class="panel hidden">
+      <div class="max-w-lg mx-auto">
+
+        <!-- Step Indicator -->
+        <div class="flex items-center justify-center mb-8">
+          <div class="flex items-center gap-2">
+            <div id="si1" class="w-8 h-8 rounded-full bg-indigo-600 text-white text-sm font-bold flex items-center justify-center">1</div>
+            <span id="sl1" class="text-sm font-semibold dark:text-indigo-400 text-indigo-600">Enter Number</span>
+          </div>
+          <div class="w-10 h-px dark:bg-slate-700 bg-slate-300 mx-3"></div>
+          <div class="flex items-center gap-2">
+            <div id="si2" class="w-8 h-8 rounded-full dark:bg-slate-800 bg-slate-200 dark:text-slate-500 text-slate-400 text-sm font-bold flex items-center justify-center">2</div>
+            <span id="sl2" class="text-sm font-medium dark:text-slate-500 text-slate-400">Verify OTP</span>
+          </div>
+          <div class="w-10 h-px dark:bg-slate-700 bg-slate-300 mx-3"></div>
+          <div class="flex items-center gap-2">
+            <div id="si3" class="w-8 h-8 rounded-full dark:bg-slate-800 bg-slate-200 dark:text-slate-500 text-slate-400 text-sm font-bold flex items-center justify-center">3</div>
+            <span id="sl3" class="text-sm font-medium dark:text-slate-500 text-slate-400">Authenticated</span>
+          </div>
+        </div>
+
+        <!-- Phone Input Card -->
+        <div id="otpPhoneCard"
+             class="dark:bg-slate-900 bg-white rounded-2xl dark:border dark:border-slate-800 border border-slate-200 p-8 shadow-xl shadow-black/5 animate-slide-up">
+          <div class="flex items-center gap-3 mb-6">
+            <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600
+                        flex items-center justify-center shadow-lg shadow-indigo-500/30">
+              <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+              </svg>
+            </div>
+            <div>
+              <p class="font-bold dark:text-white text-slate-900">WhatsApp OTP Verification</p>
+              <p class="text-xs dark:text-slate-400 text-slate-500">Cryptographically secure 6-digit code</p>
+            </div>
+          </div>
+
+          <!-- Phone Input -->
+          <div class="mb-6">
+            <label class="block text-xs font-bold dark:text-slate-400 text-slate-500 uppercase tracking-wide mb-2">
+              Mobile Number
+            </label>
+            <div class="flex gap-2">
+              <div class="flex items-center gap-2 px-3 py-3 dark:bg-slate-800 bg-slate-50
+                          dark:border-slate-700 border-slate-200 border rounded-xl
+                          dark:text-slate-300 text-slate-600 text-sm font-semibold flex-shrink-0">
+                <span>🇮🇳</span><span>+91</span>
+              </div>
+              <input type="tel" id="phoneNumber" placeholder="9876543210" maxlength="10" inputmode="numeric"
+                     class="flex-1 px-4 py-3 dark:bg-slate-800 bg-slate-50
+                            dark:border-slate-700 border-slate-200 border rounded-xl
+                            dark:text-white text-slate-900 text-sm font-semibold
+                            focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
+                            transition-all placeholder:font-normal placeholder:text-slate-400">
+            </div>
+            <p class="text-xs dark:text-slate-500 text-slate-400 mt-2">OTP will be delivered via WhatsApp</p>
+          </div>
+
+          <!-- Security badges -->
+          <div class="grid grid-cols-3 gap-2 mb-6">
+            <div class="p-3 dark:bg-slate-800/60 bg-slate-50 rounded-xl text-center border dark:border-slate-700/50 border-slate-200">
+              <div class="text-xl mb-1">🔐</div>
+              <p class="text-xs dark:text-slate-400 text-slate-500 font-medium">HMAC-SHA256</p>
+            </div>
+            <div class="p-3 dark:bg-slate-800/60 bg-slate-50 rounded-xl text-center border dark:border-slate-700/50 border-slate-200">
+              <div class="text-xl mb-1">⏱️</div>
+              <p class="text-xs dark:text-slate-400 text-slate-500 font-medium">3-min expiry</p>
+            </div>
+            <div class="p-3 dark:bg-slate-800/60 bg-slate-50 rounded-xl text-center border dark:border-slate-700/50 border-slate-200">
+              <div class="text-xl mb-1">🛡️</div>
+              <p class="text-xs dark:text-slate-400 text-slate-500 font-medium">Max 3 tries</p>
+            </div>
+          </div>
+
+          <button id="sendOtpBtn" onclick="OTPWorkflow.sendOTP()"
+                  class="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-semibold text-white
+                         bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500
+                         shadow-lg shadow-indigo-500/25 active:scale-95 transition-all duration-200
+                         disabled:opacity-60 disabled:cursor-not-allowed">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+            </svg>
+            <span id="sendOtpText">Send OTP via WhatsApp</span>
+          </button>
+        </div>
+
+        <!-- Success Card (hidden) -->
+        <div id="otpSuccessCard"
+             class="hidden dark:bg-slate-900 bg-white rounded-2xl
+                    dark:border dark:border-emerald-500/30 border border-emerald-200
+                    p-8 shadow-xl shadow-black/5 animate-bounce-in">
+          <div class="text-center mb-6">
+            <div class="w-16 h-16 rounded-full border-2 border-emerald-500 bg-emerald-500/10
+                        flex items-center justify-center mx-auto mb-4">
+              <svg class="w-8 h-8 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+              </svg>
+            </div>
+            <h3 class="text-xl font-bold dark:text-white text-slate-900">Verified Successfully!</h3>
+            <p id="verifiedPhone" class="text-sm dark:text-emerald-400 text-emerald-600 font-semibold mt-1"></p>
+          </div>
+
+          <div class="dark:bg-slate-800 bg-slate-50 rounded-xl p-4 mb-4">
+            <p class="text-xs font-bold dark:text-slate-400 text-slate-500 uppercase tracking-wide mb-2">
+              Access Token (10-min validity)
+            </p>
+            <div class="flex items-start gap-2">
+              <p id="jwtDisplay" class="text-xs dark:text-emerald-400 text-emerald-600 font-mono break-all flex-1 leading-loose"></p>
+              <button onclick="OTPWorkflow.copyToken()"
+                      class="flex-shrink-0 p-2 dark:bg-slate-700 bg-white rounded-lg transition-colors
+                             dark:text-slate-400 text-slate-500 hover:text-emerald-500" title="Copy token">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0
+                           002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <button onclick="OTPWorkflow.reset()"
+                  class="w-full py-3 rounded-xl font-medium transition-all dark:bg-slate-800 bg-slate-100
+                         dark:text-slate-300 text-slate-600 dark:hover:bg-slate-700 hover:bg-slate-200">
+            Verify Another Number
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════ COMPLIANCE & KFS PANEL ═════════ -->
+    <div id="panel-compliance" class="panel hidden">
+      <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+
+        <!-- ── Form ── -->
+        <div class="lg:col-span-2 dark:bg-slate-900 bg-white rounded-2xl
+                    dark:border dark:border-slate-800 border border-slate-200 p-6 shadow-xl shadow-black/5 h-fit">
+          <div class="flex items-center gap-3 mb-6">
+            <div class="w-9 h-9 rounded-xl bg-violet-500/15 flex items-center justify-center">
+              <svg class="w-5 h-5 text-violet-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955
+                         0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622
+                         5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+              </svg>
+            </div>
+            <div>
+              <p class="font-bold dark:text-white text-slate-900 text-sm">Compliance Verification</p>
+              <p class="text-xs dark:text-slate-500 text-slate-400">RBI Fair Practices Code</p>
+            </div>
+          </div>
+
+          <div class="space-y-3">
+            <div>
+              <label class="block text-xs font-bold dark:text-slate-400 text-slate-500 uppercase tracking-wide mb-1.5">Loan ID</label>
+              <input type="text" id="cLoanId" value="LOAN-2024-00001"
+                     class="w-full px-3 py-2.5 dark:bg-slate-800 bg-slate-50 dark:border-slate-700 border-slate-200 border rounded-lg
+                            dark:text-white text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all">
+            </div>
+            <div>
+              <label class="block text-xs font-bold dark:text-slate-400 text-slate-500 uppercase tracking-wide mb-1.5">Borrower Name</label>
+              <input type="text" id="cBorrower" value="Rajesh Kumar"
+                     class="w-full px-3 py-2.5 dark:bg-slate-800 bg-slate-50 dark:border-slate-700 border-slate-200 border rounded-lg
+                            dark:text-white text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all">
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-bold dark:text-slate-400 text-slate-500 uppercase tracking-wide mb-1.5">Principal (₹)</label>
+                <input type="number" id="cPrincipal" value="40000" step="1000"
+                       class="w-full px-3 py-2.5 dark:bg-slate-800 bg-slate-50 dark:border-slate-700 border-slate-200 border rounded-lg
+                              dark:text-white text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all">
+              </div>
+              <div>
+                <label class="block text-xs font-bold dark:text-slate-400 text-slate-500 uppercase tracking-wide mb-1.5">Flat Rate (%)</label>
+                <input type="number" id="cRate" value="12" step="0.5"
+                       class="w-full px-3 py-2.5 dark:bg-slate-800 bg-slate-50 dark:border-slate-700 border-slate-200 border rounded-lg
+                              dark:text-white text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all">
+              </div>
+            </div>
+            <div>
+              <label class="block text-xs font-bold dark:text-slate-400 text-slate-500 uppercase tracking-wide mb-1.5">Tenure (Months)</label>
+              <input type="number" id="cTenure" value="12"
+                     class="w-full px-3 py-2.5 dark:bg-slate-800 bg-slate-50 dark:border-slate-700 border-slate-200 border rounded-lg
+                            dark:text-white text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all">
+            </div>
+
+            <!-- Audit Evidence Links -->
+            <div class="pt-3 border-t dark:border-slate-800 border-slate-100">
+              <div class="flex items-center justify-between mb-2">
+                <label class="block text-xs font-extrabold dark:text-slate-400 text-slate-500 uppercase tracking-wider">
+                  Audit Evidence Links (Min 4)
+                </label>
+                <span id="evidenceCounter" class="text-xs font-extrabold dark:text-indigo-400 text-indigo-600">4 / 4</span>
+              </div>
+
+              <div id="evidenceList" class="space-y-2">
+                <input type="url" value="https://evidence.nbfc.com/kfs-signed/LOAN-2024-00001" placeholder="Evidence URL 1"
+                       class="ev-link w-full px-3 py-2 dark:bg-slate-800 bg-slate-50 dark:border-slate-700 border-slate-200 border rounded-lg dark:text-slate-300 text-slate-700 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
+                <input type="url" value="https://evidence.nbfc.com/fpc-disclosure/LOAN-2024-00001" placeholder="Evidence URL 2"
+                       class="ev-link w-full px-3 py-2 dark:bg-slate-800 bg-slate-50 dark:border-slate-700 border-slate-200 border rounded-lg dark:text-slate-300 text-slate-700 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
+                <input type="url" value="https://evidence.nbfc.com/borrower-consent/LOAN-2024-00001" placeholder="Evidence URL 3"
+                       class="ev-link w-full px-3 py-2 dark:bg-slate-800 bg-slate-50 dark:border-slate-700 border-slate-200 border rounded-lg dark:text-slate-300 text-slate-700 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
+                <input type="url" value="https://evidence.nbfc.com/credit-assessment/LOAN-2024-00001" placeholder="Evidence URL 4"
+                       class="ev-link w-full px-3 py-2 dark:bg-slate-800 bg-slate-50 dark:border-slate-700 border-slate-200 border rounded-lg dark:text-slate-300 text-slate-700 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
+              </div>
+
+              <!-- Gate satisfied warning -->
+              <div id="gateSatisfiedBadge"
+                   class="hidden mt-2 px-3 py-2 dark:bg-emerald-500/10 bg-emerald-50
+                          dark:border dark:border-emerald-500/20 border border-emerald-100 rounded-lg">
+                <p class="text-xs dark:text-emerald-400 text-emerald-600 font-medium">
+                  ✅ Hard gate satisfied — ready for compliance verification
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <button id="compBtn" onclick="ComplianceWorkflow.verify()"
+                  class="w-full mt-5 flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-white
+                         bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500
+                         shadow-lg shadow-violet-500/25 active:scale-95 transition-all duration-200
+                         disabled:opacity-60 disabled:cursor-not-allowed">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0
+                       01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332
+                       9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+            </svg>
+            <span id="compBtnText">Verify Compliance</span>
+          </button>
+        </div>
+
+        <!-- ── Results ── -->
+        <div class="lg:col-span-3 flex flex-col gap-4">
+
+          <!-- Placeholder -->
+          <div id="compPlaceholder"
+               class="flex-1 dark:bg-slate-900/40 bg-white/60 rounded-2xl border border-dashed
+                      dark:border-slate-800 border-slate-200 flex flex-col items-center justify-center py-20 text-center">
+            <div class="w-16 h-16 dark:bg-slate-800 bg-slate-100 rounded-2xl flex items-center justify-center mb-4">
+              <svg class="w-8 h-8 dark:text-slate-600 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414
+                         5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+              </svg>
+            </div>
+            <p class="font-semibold dark:text-slate-500 text-slate-400">KFS &amp; audit trail will appear here</p>
+            <p class="text-sm dark:text-slate-600 text-slate-300 mt-1">Add 4+ audit links and verify</p>
+          </div>
+
+          <!-- Results (hidden until verify) -->
+          <div id="compResults" class="hidden flex-col gap-4">
+
+            <!-- Approval Banner -->
+            <div id="approvalBanner" class="rounded-2xl p-5 border flex items-start gap-4 animate-slide-up">
+              <div id="approvalIcon" class="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"></div>
+              <div class="flex-1 min-w-0">
+                <div class="flex flex-wrap items-center gap-2 mb-1">
+                  <h3 id="approvalTitle" class="font-extrabold text-lg"></h3>
+                  <span id="approvalBadge" class="px-2.5 py-0.5 rounded-full text-xs font-extrabold"></span>
+                </div>
+                <p id="approvalReason" class="text-sm leading-relaxed opacity-75"></p>
+              </div>
+            </div>
+
+            <!-- Delivery Tracker -->
+            <div class="dark:bg-slate-900 bg-white rounded-2xl dark:border dark:border-slate-800 border border-slate-200 p-5 shadow-xl shadow-black/5">
+              <p class="font-bold dark:text-white text-slate-900 text-sm mb-4">KFS Delivery Status</p>
+              <div class="flex items-center">
+                <!-- Step 1 -->
+                <div class="flex flex-col items-center">
+                  <div id="ds1" class="step-icon w-10 h-10 rounded-full border-2 border-slate-700
+                                       flex items-center justify-center mb-2 transition-all duration-500">
+                    <svg class="w-5 h-5 dark:text-slate-600 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+                    </svg>
+                  </div>
+                  <span class="text-xs font-semibold dark:text-slate-500 text-slate-400">Sent</span>
+                </div>
+                <div id="dc1" class="connector"></div>
+                <!-- Step 2 -->
+                <div class="flex flex-col items-center">
+                  <div id="ds2" class="step-icon w-10 h-10 rounded-full border-2 border-slate-700
+                                       flex items-center justify-center mb-2 transition-all duration-500">
+                    <svg class="w-5 h-5 dark:text-slate-600 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+                    </svg>
+                  </div>
+                  <span class="text-xs font-semibold dark:text-slate-500 text-slate-400">Delivered</span>
+                </div>
+                <div id="dc2" class="connector"></div>
+                <!-- Step 3 -->
+                <div class="flex flex-col items-center">
+                  <div id="ds3" class="step-icon w-10 h-10 rounded-full border-2 border-slate-700
+                                       flex items-center justify-center mb-2 transition-all duration-500">
+                    <svg class="w-5 h-5 dark:text-slate-600 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0
+                               8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                    </svg>
+                  </div>
+                  <span class="text-xs font-semibold dark:text-slate-500 text-slate-400">Read</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- KFS Accordion -->
+            <div class="dark:bg-slate-900 bg-white rounded-2xl dark:border dark:border-slate-800 border border-slate-200 shadow-xl shadow-black/5 overflow-hidden">
+              <button onclick="ComplianceWorkflow.toggleKFS()"
+                      class="w-full flex items-center justify-between p-5
+                             dark:hover:bg-slate-800/50 hover:bg-slate-50 transition-colors">
+                <div class="flex items-center gap-3">
+                  <div class="w-8 h-8 rounded-lg bg-violet-500/15 flex items-center justify-center">
+                    <svg class="w-4 h-4 text-violet-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414
+                               5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                  </div>
+                  <div class="text-left">
+                    <p class="font-bold dark:text-white text-slate-900 text-sm">Key Fact Statement (KFS)</p>
+                    <p id="kfsDocLabel" class="text-xs dark:text-slate-500 text-slate-400">RBI FPC Mandated — click to expand</p>
+                  </div>
+                </div>
+                <svg id="kfsChevron" class="w-4 h-4 dark:text-slate-500 text-slate-400 transition-transform duration-200"
+                     fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+              </button>
+
+              <div id="kfsBody" class="hidden px-5 pb-5">
+                <div id="kfsFields" class="space-y-2 mb-4"></div>
+                <!-- APR Breakdown -->
+                <div class="p-4 dark:bg-slate-800 bg-slate-50 rounded-xl">
+                  <p class="text-xs font-extrabold dark:text-slate-300 text-slate-600 uppercase tracking-wider mb-3">
+                    APR Transparency (~21.5%)
+                  </p>
+                  <div class="space-y-2">
+                    <div class="flex justify-between text-xs">
+                      <span class="dark:text-slate-400 text-slate-500">Flat Interest Rate</span>
+                      <span id="kfsFlat" class="dark:text-white text-slate-900 font-semibold">12.0%</span>
+                    </div>
+                    <div class="flex justify-between text-xs">
+                      <span class="dark:text-slate-400 text-slate-500">Effective APR (Reducing Balance)</span>
+                      <span id="kfsAPR" class="font-extrabold text-amber-500">~21.46%</span>
+                    </div>
+                    <div class="flex justify-between text-xs">
+                      <span class="dark:text-slate-400 text-slate-500">Regulatory Basis</span>
+                      <span class="dark:text-slate-300 text-slate-600 font-semibold">RBI FPC 2023</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Audit Trail -->
+            <div class="dark:bg-slate-900 bg-white rounded-2xl dark:border dark:border-slate-800 border border-slate-200 p-5 shadow-xl shadow-black/5">
+              <div class="flex items-center gap-3 mb-4">
+                <div class="w-8 h-8 rounded-lg bg-emerald-500/15 flex items-center justify-center">
+                  <svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0
+                             002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+                  </svg>
+                </div>
+                <div>
+                  <p class="font-bold dark:text-white text-slate-900 text-sm">Immutable Audit Trail</p>
+                  <p class="text-xs dark:text-slate-500 text-slate-400">15-year retention · SHA-256 tamper-evident</p>
+                </div>
+              </div>
+              <div id="auditTrailFields" class="space-y-2"></div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ──────────────────────────────────────────── FOOTER ────────── -->
+  <footer class="dark:border-t dark:border-slate-800 border-t border-slate-200 mt-8 py-6
+                 dark:bg-slate-950 bg-slate-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
+      <div class="flex items-center gap-2">
+        <div class="w-6 h-6 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center">
+          <span class="text-white text-xs font-bold">FF</span>
+        </div>
+        <span class="text-xs dark:text-slate-500 text-slate-400 font-medium">FinFlow NBFC Platform v1.0</span>
+      </div>
+      <div class="flex items-center gap-3 text-xs dark:text-slate-600 text-slate-400 flex-wrap justify-center">
+        <span>RBI FPC Compliant</span>
+        <span class="dark:text-slate-700 text-slate-300">•</span>
+        <span>15-Year Audit Trail</span>
+        <span class="dark:text-slate-700 text-slate-300">•</span>
+        <span>HMAC-SHA256 Secured</span>
+        <span class="dark:text-slate-700 text-slate-300">•</span>
+        <span>CrewAI Agents</span>
+      </div>
+    </div>
+  </footer>
+
+</div><!-- end app shell -->
+
+<script src="/static/app.js"></script>
+</body>
+</html>
