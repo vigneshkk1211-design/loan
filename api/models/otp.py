@@ -39,6 +39,8 @@ class OTPSendResponse(BaseModel):
     reference_id: str = Field(..., description="UUID4 reference for this OTP session")
     expires_in: int = Field(..., description="OTP validity in seconds (180 = 3 minutes)")
     max_attempts: int = Field(default=3, description="Maximum verify attempts allowed")
+    demo_otp: str | None = Field(default=None, description="Plaintext OTP returned for testing convenience")
+
 
 
 class OTPVerifyRequest(BaseModel):
@@ -137,3 +139,5 @@ class OTPResendResponse(BaseModel):
         description="Seconds to wait before next resend is allowed (exponential backoff)",
     )
     expires_in: int = Field(..., description="New OTP validity in seconds")
+    demo_otp: str | None = Field(default=None, description="Plaintext OTP returned for testing convenience")
+

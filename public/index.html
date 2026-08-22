@@ -4,8 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>FinFlow NBFC — AI-Powered MicroFinance Dashboard</title>
-  <meta name="description" content="AI-powered NBFC dashboard with EMI calculation, WhatsApp OTP authentication, and RBI compliance verification powered by CrewAI agents." />
-  <meta name="keywords" content="NBFC, MFI, microfinance, loan calculator, RBI compliance, KFS, OTP" />
+  <meta name="description" content="AI-powered NBFC dashboard with EMI calculation, WhatsApp OTP authentication, and RBI compliance verification powered by NVIDIA NIM." />
+  <meta name="keywords" content="NBFC, MFI, microfinance, loan calculator, RBI compliance, KFS, OTP, NVIDIA NIM" />
 
   <!-- TailwindCSS Play CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -35,22 +35,29 @@
     };
   </script>
 
+  <!-- Chart.js & html2pdf.js CDNs -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
   <!-- Google Fonts: Inter -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Fira+Code:wght@400;500;700&display=swap" rel="stylesheet" />
 
   <style>
     *, *::before, *::after { box-sizing: border-box; }
     body { font-family: 'Inter', sans-serif; }
 
-    /* ── Custom scrollbar ──────────────────────────────── */
+    /* Custom scrollbar */
     ::-webkit-scrollbar { width: 5px; height: 5px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: #334155; border-radius: 99px; }
     ::-webkit-scrollbar-thumb:hover { background: #475569; }
 
-    /* ── Gradient text ─────────────────────────────────── */
+    /* Monospace log stream */
+    .log-stream { font-family: 'Fira Code', monospace; }
+
+    /* Gradient text */
     .g-text {
       background: linear-gradient(135deg, #818cf8 0%, #a78bfa 50%, #c084fc 100%);
       -webkit-background-clip: text;
@@ -64,7 +71,7 @@
       background-clip: text;
     }
 
-    /* ── OTP digit inputs ──────────────────────────────── */
+    /* OTP digit inputs */
     .otp-box {
       width: 50px; height: 58px;
       text-align: center; font-size: 1.625rem; font-weight: 700;
@@ -87,40 +94,42 @@
       40%,80%  { transform: translateX(5px); }
     }
 
-    /* ── Range sliders ─────────────────────────────────── */
-    input[type=range] { -webkit-appearance: none; height: 4px; border-radius: 2px; background: #334155; outline: none; cursor: pointer; }
+    /* Range sliders */
+    input[type=range] { -webkit-appearance: none; height: 6px; border-radius: 99px; background: #334155; outline: none; cursor: pointer; }
     input[type=range]::-webkit-slider-thumb {
       -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%;
       background: #6366f1; border: 2px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      transition: transform 0.1s;
     }
+    input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.15); }
     html:not(.dark) input[type=range] { background: #e2e8f0; }
 
-    /* ── Tab underline ─────────────────────────────────── */
+    /* Tab underline */
     .tab-active { border-bottom: 2px solid #6366f1; }
     .tab-inactive { border-bottom: 2px solid transparent; }
 
-    /* ── Card hover lift ───────────────────────────────── */
+    /* Card hover lift */
     .card-lift { transition: transform 0.2s ease, box-shadow 0.2s ease; }
-    .card-lift:hover { transform: translateY(-3px); box-shadow: 0 20px 40px rgba(0,0,0,0.15); }
+    .card-lift:hover { transform: translateY(-3px); box-shadow: 0 20px 40px rgba(0,0,0,0.25); }
 
-    /* ── Delivery step icons ───────────────────────────── */
+    /* Delivery step icons */
     .step-done   .step-icon { background: #10b981; border-color: #10b981; }
     .step-active .step-icon { background: #6366f1; border-color: #6366f1; box-shadow: 0 0 0 5px rgba(99,102,241,0.2); }
     .step-pending .step-icon { background: transparent; border-color: #334155; }
 
-    /* ── Metric number animation ───────────────────────── */
+    /* Metric number animation */
     .metric-val { transition: all 0.4s ease; }
 
-    /* ── Connector line ────────────────────────────────── */
+    /* Connector line */
     .connector { height: 2px; flex: 1; background: #1e293b; margin-bottom: 28px; transition: background 0.4s ease; }
     .connector.done { background: #10b981; }
 
-    /* ── Toast ─────────────────────────────────────────── */
+    /* Toast */
     .toast-item { animation: slideRight 0.3s ease-out; pointer-events: auto; }
   </style>
 </head>
 
-<body class="dark:bg-slate-950 bg-slate-50 dark:text-slate-100 text-slate-900 transition-colors duration-200 min-h-screen">
+<body class="dark:bg-slate-950 bg-slate-50 dark:text-slate-100 text-slate-900 transition-colors duration-200 min-h-screen relative overflow-x-hidden">
 
 <!-- ══════════════════════════════════════════ TOAST CONTAINER ═══ -->
 <div id="toastContainer"
@@ -135,9 +144,9 @@
   <!-- Backdrop -->
   <div id="otpBackdrop" class="absolute inset-0 bg-black/70 backdrop-blur-md"></div>
 
-  <!-- Card -->
-  <div class="relative dark:bg-slate-900 bg-white border dark:border-slate-700 border-slate-200
-              rounded-2xl p-8 w-full max-w-sm shadow-2xl shadow-black/60 animate-bounce-in">
+  <!-- Card (Glassmorphic) -->
+  <div class="relative dark:bg-slate-900/90 bg-white/95 border dark:border-slate-800 border-slate-200 backdrop-blur-lg
+              rounded-2xl p-8 w-full max-w-sm shadow-2xl shadow-indigo-500/5 animate-bounce-in">
 
     <!-- Close button -->
     <button id="otpModalClose"
@@ -166,7 +175,7 @@
       </p>
     </div>
 
-    <!-- 6-Digit OTP Inputs -->
+    <!-- 6-Digit OTP Inputs with auto-focus -->
     <div class="flex justify-center gap-2 mb-4" id="otpDigitRow">
       <input class="otp-box" type="text" inputmode="numeric" maxlength="1" data-i="0" id="otp0" autocomplete="one-time-code" aria-label="Digit 1">
       <input class="otp-box" type="text" inputmode="numeric" maxlength="1" data-i="1" id="otp1" aria-label="Digit 2">
@@ -201,241 +210,150 @@
   </div>
 </div>
 
-<!-- ═══════════════════════════════════════════════════ APP SHELL ═ -->
+<!-- ═══════════════════════════════════ APP SHELL ════════════════ -->
 <div class="flex flex-col min-h-screen">
 
-  <!-- ──────────────────────────────────────────── NAVBAR ───────── -->
-  <nav class="sticky top-0 z-30 dark:bg-slate-950/90 bg-white/90 backdrop-blur-md
-              dark:border-b dark:border-slate-800 border-b border-slate-200">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-
+  <!-- ──────────────────────────────────────────── HEADER ────────── -->
+  <header class="dark:bg-slate-950/70 bg-white/70 backdrop-blur-md border-b dark:border-slate-900 border-slate-200 sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      
       <!-- Logo -->
       <div class="flex items-center gap-3">
-        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600
-                    flex items-center justify-center shadow-lg shadow-indigo-500/30 flex-shrink-0">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500
+                    flex items-center justify-center shadow-lg shadow-indigo-500/20">
           <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
-                  d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0
-                     2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9
-                     9 0 11-18 0 9 9 0 0118 0z"/>
+                  d="M13 10V3L4 14h7v7l9-11h-7z"/>
           </svg>
         </div>
         <div>
-          <p class="font-bold dark:text-white text-slate-900 text-sm leading-tight">FinFlow NBFC</p>
-          <p class="text-xs dark:text-slate-500 text-slate-400">MicroFinance Platform</p>
+          <h1 class="text-md font-black tracking-tight leading-none dark:text-white text-slate-900">
+            FinFlow <span class="g-text">NBFC</span>
+          </h1>
+          <p class="text-[10px] dark:text-slate-500 text-slate-400 font-bold uppercase tracking-wider mt-0.5">
+            MicroFinance Calculator &amp; Audit
+          </p>
         </div>
       </div>
 
-      <!-- Right Controls -->
+      <!-- Controls -->
       <div class="flex items-center gap-3">
-        <!-- API Status -->
-        <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full
-                    dark:bg-emerald-500/10 bg-emerald-50
-                    dark:border dark:border-emerald-500/20 border border-emerald-100">
-          <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
-          <span class="text-xs font-semibold dark:text-emerald-400 text-emerald-600">API Online</span>
-        </div>
+        
+        <!-- Live Agent Terminal Toggle -->
+        <button id="terminalToggleBtn" 
+                class="flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-lg border dark:border-slate-800 border-slate-200 dark:bg-slate-900/60 bg-white hover:border-emerald-500/40 dark:hover:text-emerald-400 hover:text-emerald-600 transition-all shadow-sm">
+          <span>📟</span>
+          <span class="hidden sm:inline">Activity Logs</span>
+        </button>
 
-        <!-- Swagger link -->
-        <a href="/docs" target="_blank"
-           class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium
-                  dark:bg-slate-800 bg-slate-100 dark:text-slate-400 text-slate-500
-                  dark:hover:bg-slate-700 hover:bg-slate-200 transition-colors">
-          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
-          </svg>
-          Swagger
-        </a>
-
-        <!-- Theme Toggle -->
         <button id="themeToggle"
-                class="w-10 h-10 rounded-xl dark:bg-slate-800 bg-slate-100
-                       dark:hover:bg-slate-700 hover:bg-slate-200
-                       flex items-center justify-center transition-all duration-200 active:scale-95 text-lg"
-                aria-label="Toggle theme" title="Toggle dark/light mode">
+                class="w-9 h-9 rounded-lg border dark:border-slate-800 border-slate-200 dark:bg-slate-900/60 bg-white
+                       flex items-center justify-center dark:text-slate-300 text-slate-600
+                       dark:hover:bg-slate-800 hover:bg-slate-100 transition-all shadow-sm"
+                aria-label="Toggle theme">
           <span id="themeIcon">☀️</span>
         </button>
       </div>
+
     </div>
-  </nav>
+  </header>
 
-  <!-- ───────────────────────────────────────── HERO BANNER ─────── -->
-  <div class="relative overflow-hidden dark:bg-slate-950 bg-slate-50 pb-2">
-    <!-- Ambient glow blobs -->
-    <div class="absolute pointer-events-none inset-0 overflow-hidden">
-      <div class="absolute -top-32 -right-32 w-80 h-80 rounded-full bg-indigo-600/10 blur-3xl"></div>
-      <div class="absolute top-1/2 -left-24 w-64 h-64 rounded-full bg-violet-600/10 blur-3xl"></div>
-    </div>
+  <!-- ──────────────────────────────────────────── MAIN ──────────── -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
-    <div class="relative max-w-7xl mx-auto px-4 sm:px-6 py-10">
-      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
-
-        <!-- Title -->
-        <div>
-          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full mb-3
-                      dark:bg-indigo-500/10 bg-indigo-50
-                      dark:border dark:border-indigo-500/20 border border-indigo-100">
-            <span class="text-xs font-bold dark:text-indigo-400 text-indigo-600 uppercase tracking-widest">
-              CrewAI Agent Platform v1.0
-            </span>
-          </div>
-          <h1 class="text-3xl sm:text-4xl font-extrabold dark:text-white text-slate-900 leading-tight">
-            MicroFinance <span class="g-text">Dashboard</span>
-          </h1>
-          <p class="text-sm dark:text-slate-400 text-slate-500 mt-2 max-w-md leading-relaxed">
-            Three AI agents: EMI engine, WhatsApp OTP auth, and RBI compliance verification —
-            all production-ready with full Swagger UI.
-          </p>
-        </div>
-
-        <!-- Stats -->
-        <div class="grid grid-cols-3 gap-3 flex-shrink-0">
-          <div class="card-lift text-center px-4 py-3 dark:bg-slate-900 bg-white rounded-xl
-                      dark:border dark:border-slate-800 border border-slate-200 shadow-sm">
-            <p class="text-xl font-extrabold dark:text-white text-slate-900">₹40K</p>
-            <p class="text-xs dark:text-slate-500 text-slate-400 mt-0.5">Avg. Loan</p>
-          </div>
-          <div class="card-lift text-center px-4 py-3 dark:bg-slate-900 bg-white rounded-xl
-                      dark:border dark:border-slate-800 border border-slate-200 shadow-sm">
-            <p class="text-xl font-extrabold dark:text-amber-400 text-amber-600">21.5%</p>
-            <p class="text-xs dark:text-slate-500 text-slate-400 mt-0.5">Eff. APR</p>
-          </div>
-          <div class="card-lift text-center px-4 py-3 dark:bg-slate-900 bg-white rounded-xl
-                      dark:border dark:border-slate-800 border border-slate-200 shadow-sm">
-            <p class="text-xl font-extrabold g-text-green">✓ RBI</p>
-            <p class="text-xs dark:text-slate-500 text-slate-400 mt-0.5">Compliant</p>
-          </div>
-        </div>
+    <!-- Hero Banner -->
+    <div class="mb-8 p-8 rounded-3xl dark:bg-gradient-to-r dark:from-slate-900 dark:via-indigo-950/20 dark:to-slate-900 bg-white border dark:border-slate-900 border-slate-200 relative overflow-hidden shadow-xl shadow-black/5">
+      <div class="absolute -right-16 -top-16 w-48 h-48 rounded-full bg-indigo-500/10 blur-3xl"></div>
+      <div class="absolute -left-16 -bottom-16 w-48 h-48 rounded-full bg-purple-500/10 blur-3xl"></div>
+      
+      <div class="relative z-10 max-w-2xl">
+        <span class="px-3 py-1 rounded-full dark:bg-indigo-500/10 bg-indigo-50 dark:text-indigo-400 text-indigo-700 text-[10px] font-black tracking-widest uppercase border dark:border-indigo-500/20 border-indigo-100">
+          ⚡ MFI Operations Engine
+        </span>
+        <h2 class="text-3xl font-extrabold tracking-tight dark:text-white text-slate-900 mt-4 mb-2">
+          Production-Grade Microfinance Dashboard
+        </h2>
+        <p class="text-sm dark:text-slate-400 text-slate-500 leading-relaxed">
+          Experience real-time flat-rate calculations, JWT WhatsApp OTP generation and RBI compliance logs backed by lightweight, high-performance modular services.
+        </p>
       </div>
     </div>
-  </div>
 
-  <!-- ────────────────────────────────────────────── TAB BAR ─────── -->
-  <div class="dark:bg-slate-950 bg-slate-50 dark:border-b dark:border-slate-800 border-b border-slate-200
-              sticky top-16 z-20">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 flex overflow-x-auto">
-
-      <button id="tab-loan"
-              onclick="TabManager.switch('loan')"
-              class="tab-active flex items-center gap-2 px-5 py-4 text-sm font-semibold whitespace-nowrap
-                     dark:text-indigo-400 text-indigo-600 transition-all">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 11h.01M12 11h.01M15 11h.01
-                   M4 19h16a2 2 0 002-2V7a2 2 0 00-2-2H4a2 2 0 00-2 2v10a2 2 0 002 2z"/>
-        </svg>
-        Loan Calculator
+    <!-- Tab Bar -->
+    <div class="flex border-b dark:border-slate-900 border-slate-200 mb-8 overflow-x-auto">
+      <button id="tab-loan" onclick="TabManager.switch('loan')"
+              class="px-5 py-3 text-sm font-medium transition-all focus:outline-none flex items-center gap-2 whitespace-nowrap">
+        <span>🧮</span> Loan Calculator
       </button>
-
-      <button id="tab-otp"
-              onclick="TabManager.switch('otp')"
-              class="tab-inactive flex items-center gap-2 px-5 py-4 text-sm font-medium whitespace-nowrap
-                     dark:text-slate-400 text-slate-500 dark:hover:text-slate-200 hover:text-slate-700 transition-all">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/>
-        </svg>
-        OTP Verification
+      <button id="tab-otp" onclick="TabManager.switch('otp')"
+              class="px-5 py-3 text-sm font-medium transition-all focus:outline-none flex items-center gap-2 whitespace-nowrap">
+        <span>🔐</span> WhatsApp OTP
       </button>
-
-      <button id="tab-compliance"
-              onclick="TabManager.switch('compliance')"
-              class="tab-inactive flex items-center gap-2 px-5 py-4 text-sm font-medium whitespace-nowrap
-                     dark:text-slate-400 text-slate-500 dark:hover:text-slate-200 hover:text-slate-700 transition-all">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955
-                   0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622
-                   5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
-        </svg>
-        RBI Compliance &amp; KFS
+      <button id="tab-compliance" onclick="TabManager.switch('compliance')"
+              class="px-5 py-3 text-sm font-medium transition-all focus:outline-none flex items-center gap-2 whitespace-nowrap">
+        <span>🛡️</span> Compliance Check
       </button>
-
     </div>
-  </div>
 
-  <!-- ─────────────────────────────────────── MAIN CONTENT ────────── -->
-  <main class="flex-1 max-w-7xl mx-auto px-4 sm:px-6 py-8 w-full">
-
-    <!-- ══════════════════════════ LOAN CALCULATOR PANEL ══════════ -->
+    <!-- ══════════════════════════ LOAN CALCULATOR PANEL ═════════ -->
     <div id="panel-loan" class="panel">
       <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
 
-        <!-- ── Inputs ── -->
-        <div class="lg:col-span-2 dark:bg-slate-900 bg-white rounded-2xl
-                    dark:border dark:border-slate-800 border border-slate-200 p-6 shadow-xl shadow-black/5">
-          <div class="flex items-center gap-3 mb-6">
-            <div class="w-9 h-9 rounded-xl bg-indigo-500/15 flex items-center justify-center">
-              <svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                      d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0
-                         2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"/>
-              </svg>
+        <!-- Input panel (Glassmorphic) -->
+        <div class="lg:col-span-2 dark:bg-slate-900/60 bg-white/80 border dark:border-slate-800 border-slate-200 backdrop-blur-md rounded-2xl p-6 shadow-xl shadow-black/5 h-fit">
+          <h3 class="text-sm font-bold dark:text-white text-slate-900 uppercase tracking-wider mb-5 flex items-center gap-2">
+            <span>⚙️</span> Loan Parameters
+          </h3>
+
+          <!-- Principal Slider (₹5,000 - ₹5,00,000) -->
+          <div class="mb-5">
+            <div class="flex justify-between items-center mb-2">
+              <label class="block text-xs font-semibold dark:text-slate-400 text-slate-500 uppercase tracking-wide">
+                Principal Amount (₹)
+              </label>
+              <input type="number" id="principal" value="40000" min="5000" max="500000" step="5000"
+                     class="w-32 text-right px-2 py-1 dark:bg-slate-850 bg-slate-50 dark:border-slate-800 border-slate-200 border rounded-lg dark:text-white text-slate-900 text-xs font-bold focus:outline-none focus:ring-1 focus:ring-indigo-500">
             </div>
-            <div>
-              <p class="font-bold dark:text-white text-slate-900 text-sm">Loan Parameters</p>
-              <p class="text-xs dark:text-slate-500 text-slate-400">Flat-rate · Decimal precision</p>
+            <input type="range" id="principalSlider" min="5000" max="500000" step="5000" value="40000" class="w-full mt-1 accent-indigo-500">
+            <div class="flex justify-between text-[10px] dark:text-slate-600 text-slate-400 mt-1">
+              <span>₹5k</span><span>₹100k</span><span>₹250k</span><span>₹500k</span>
             </div>
           </div>
 
-          <!-- Principal -->
+          <!-- Interest Rate Slider -->
           <div class="mb-5">
-            <label class="block text-xs font-semibold dark:text-slate-400 text-slate-500 uppercase tracking-wide mb-2">
-              Principal Amount
-            </label>
-            <div class="relative">
-              <span class="absolute left-3.5 top-1/2 -translate-y-1/2 font-bold text-sm dark:text-slate-400 text-slate-400">₹</span>
-              <input type="number" id="principal" value="40000" min="1000" max="1000000" step="500"
-                     class="w-full pl-8 pr-4 py-3 dark:bg-slate-800 bg-slate-50
-                            dark:border-slate-700 border-slate-200 border rounded-xl
-                            dark:text-white text-slate-900 text-sm font-semibold
-                            focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all">
-            </div>
-            <input type="range" id="principalSlider" min="5000" max="500000" step="1000" value="40000" class="w-full mt-2">
-            <div class="flex justify-between text-xs dark:text-slate-600 text-slate-400 mt-0.5">
-              <span>₹5K</span><span>₹5L</span>
-            </div>
-          </div>
-
-          <!-- Rate -->
-          <div class="mb-5">
-            <label class="block text-xs font-semibold dark:text-slate-400 text-slate-500 uppercase tracking-wide mb-2">
-              Annual Interest Rate
-            </label>
-            <div class="relative">
+            <div class="flex justify-between items-center mb-2">
+              <label class="block text-xs font-semibold dark:text-slate-400 text-slate-500 uppercase tracking-wide">
+                Annual Flat Rate (%)
+              </label>
               <input type="number" id="annual_rate" value="12" min="1" max="36" step="0.5"
-                     class="w-full pr-10 pl-4 py-3 dark:bg-slate-800 bg-slate-50
-                            dark:border-slate-700 border-slate-200 border rounded-xl
-                            dark:text-white text-slate-900 text-sm font-semibold
-                            focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all">
-              <span class="absolute right-4 top-1/2 -translate-y-1/2 font-bold text-sm dark:text-slate-400 text-slate-400">%</span>
+                     class="w-20 text-right px-2 py-1 dark:bg-slate-850 bg-slate-50 dark:border-slate-800 border-slate-200 border rounded-lg dark:text-white text-slate-900 text-xs font-bold focus:outline-none focus:ring-1 focus:ring-indigo-500">
             </div>
-            <input type="range" id="rateSlider" min="8" max="36" step="0.5" value="12" class="w-full mt-2">
-            <div class="flex justify-between text-xs dark:text-slate-600 text-slate-400 mt-0.5">
-              <span>8%</span><span>36%</span>
+            <input type="range" id="rateSlider" min="8" max="36" step="0.5" value="12" class="w-full mt-1 accent-indigo-500">
+            <div class="flex justify-between text-[10px] dark:text-slate-600 text-slate-400 mt-1">
+              <span>8%</span><span>20%</span><span>36%</span>
             </div>
           </div>
 
-          <!-- Tenure -->
+          <!-- Tenure Slider (3 - 36 months) -->
           <div class="mb-6">
-            <label class="block text-xs font-semibold dark:text-slate-400 text-slate-500 uppercase tracking-wide mb-2">
-              Loan Tenure
-            </label>
-            <div class="relative">
-              <input type="number" id="tenure_months" value="12" min="1" max="84"
-                     class="w-full pr-20 pl-4 py-3 dark:bg-slate-800 bg-slate-50
-                            dark:border-slate-700 border-slate-200 border rounded-xl
-                            dark:text-white text-slate-900 text-sm font-semibold
-                            focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all">
-              <span class="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold dark:text-slate-400 text-slate-400">months</span>
+            <div class="flex justify-between items-center mb-2">
+              <label class="block text-xs font-semibold dark:text-slate-400 text-slate-500 uppercase tracking-wide">
+                Tenure (Months)
+              </label>
+              <input type="number" id="tenure_months" value="12" min="3" max="36" step="1"
+                     class="w-20 text-right px-2 py-1 dark:bg-slate-850 bg-slate-50 dark:border-slate-800 border-slate-200 border rounded-lg dark:text-white text-slate-900 text-xs font-bold focus:outline-none focus:ring-1 focus:ring-indigo-500">
             </div>
-            <div class="flex gap-1.5 mt-2 flex-wrap">
-              <button onclick="LoanCalculator.setTenure(6)"  class="tenure-q px-3 py-1 text-xs rounded-lg font-semibold transition-all">6M</button>
-              <button onclick="LoanCalculator.setTenure(12)" class="tenure-q px-3 py-1 text-xs rounded-lg font-semibold transition-all">12M</button>
-              <button onclick="LoanCalculator.setTenure(18)" class="tenure-q px-3 py-1 text-xs rounded-lg font-semibold transition-all">18M</button>
-              <button onclick="LoanCalculator.setTenure(24)" class="tenure-q px-3 py-1 text-xs rounded-lg font-semibold transition-all">24M</button>
-              <button onclick="LoanCalculator.setTenure(36)" class="tenure-q px-3 py-1 text-xs rounded-lg font-semibold transition-all">36M</button>
+            <input type="range" id="tenureSlider" min="3" max="36" step="1" value="12" class="w-full mt-1 accent-indigo-500">
+            <div class="flex justify-between text-[10px] dark:text-slate-600 text-slate-400 mt-1">
+              <span>3M</span><span>12M</span><span>24M</span><span>36M</span>
+            </div>
+            <div class="flex gap-1.5 mt-3 flex-wrap">
+              <button onclick="LoanCalculator.setTenure(6)"  class="tenure-q px-2.5 py-1 text-[10px] rounded-lg font-semibold transition-all">6M</button>
+              <button onclick="LoanCalculator.setTenure(12)" class="tenure-q px-2.5 py-1 text-[10px] rounded-lg font-semibold transition-all">12M</button>
+              <button onclick="LoanCalculator.setTenure(18)" class="tenure-q px-2.5 py-1 text-[10px] rounded-lg font-semibold transition-all">18M</button>
+              <button onclick="LoanCalculator.setTenure(24)" class="tenure-q px-2.5 py-1 text-[10px] rounded-lg font-semibold transition-all">24M</button>
+              <button onclick="LoanCalculator.setTenure(36)" class="tenure-q px-2.5 py-1 text-[10px] rounded-lg font-semibold transition-all">36M</button>
             </div>
           </div>
 
@@ -444,7 +362,7 @@
                   class="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold
                          text-white bg-gradient-to-r from-indigo-600 to-violet-600
                          hover:from-indigo-500 hover:to-violet-500
-                         shadow-lg shadow-indigo-500/25 active:scale-95 transition-all duration-200
+                         shadow-lg shadow-indigo-500/20 active:scale-95 transition-all duration-200
                          disabled:opacity-60 disabled:cursor-not-allowed">
             <svg id="calcIcon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -455,7 +373,7 @@
           </button>
         </div>
 
-        <!-- ── Results ── -->
+        <!-- Results (Glassmorphic) -->
         <div class="lg:col-span-3 flex flex-col gap-4">
 
           <!-- Placeholder -->
@@ -468,70 +386,90 @@
                          M4 19h16a2 2 0 002-2V7a2 2 0 00-2-2H4a2 2 0 00-2 2v10a2 2 0 002 2z"/>
               </svg>
             </div>
-            <p class="font-semibold dark:text-slate-500 text-slate-400">Enter details and click "Calculate EMI"</p>
-            <p class="text-sm dark:text-slate-600 text-slate-300 mt-1">Results appear here in real-time</p>
+            <p class="font-semibold dark:text-slate-500 text-slate-400">Loading calculations...</p>
           </div>
 
-          <!-- Results Grid (hidden until first calc) -->
+          <!-- Results Grid (hidden until loaded) -->
           <div id="loanResults" class="hidden flex-col gap-4">
+            
             <!-- Metric Cards -->
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div class="card-lift dark:bg-slate-900 bg-white rounded-2xl dark:border dark:border-slate-800 border border-slate-200 p-5 shadow-xl shadow-black/5">
+              <div class="card-lift dark:bg-slate-900/70 bg-white border dark:border-slate-800 border-slate-200 p-5 rounded-2xl shadow-xl shadow-black/5">
                 <div class="flex items-center gap-2 mb-3">
-                  <div class="w-7 h-7 rounded-lg bg-amber-500/15 flex items-center justify-center">
+                  <div class="w-7 h-7 rounded-lg bg-amber-500/10 flex items-center justify-center">
                     <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"/>
                     </svg>
                   </div>
-                  <span class="text-xs font-semibold dark:text-slate-400 text-slate-500">Total Interest</span>
+                  <span class="text-[10px] font-bold dark:text-slate-400 text-slate-500 uppercase tracking-wide">Total Interest</span>
                 </div>
-                <p id="resInterest" class="metric-val text-2xl font-extrabold text-amber-500 tabular-nums">₹0.00</p>
-                <p class="text-xs dark:text-slate-600 text-slate-400 mt-1">Flat rate charge</p>
+                <p id="resInterest" class="metric-val text-2xl font-black text-amber-500 tabular-nums">₹0.00</p>
+                <p class="text-[10px] dark:text-slate-500 text-slate-400 mt-1">Flat rate charge</p>
               </div>
 
-              <div class="card-lift dark:bg-slate-900 bg-white rounded-2xl dark:border dark:border-slate-800 border border-slate-200 p-5 shadow-xl shadow-black/5">
+              <div class="card-lift dark:bg-slate-900/70 bg-white border dark:border-slate-800 border-slate-200 p-5 rounded-2xl shadow-xl shadow-black/5">
                 <div class="flex items-center gap-2 mb-3">
-                  <div class="w-7 h-7 rounded-lg bg-violet-500/15 flex items-center justify-center">
+                  <div class="w-7 h-7 rounded-lg bg-violet-500/10 flex items-center justify-center">
                     <svg class="w-4 h-4 text-violet-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0
                                002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/>
                     </svg>
                   </div>
-                  <span class="text-xs font-semibold dark:text-slate-400 text-slate-500">Total Payable</span>
+                  <span class="text-[10px] font-bold dark:text-slate-400 text-slate-500 uppercase tracking-wide">Total Payable</span>
                 </div>
-                <p id="resTotal" class="metric-val text-2xl font-extrabold text-violet-500 tabular-nums">₹0.00</p>
-                <p class="text-xs dark:text-slate-600 text-slate-400 mt-1">Principal + Interest</p>
+                <p id="resTotal" class="metric-val text-2xl font-black text-violet-500 tabular-nums">₹0.00</p>
+                <p class="text-[10px] dark:text-slate-500 text-slate-400 mt-1">Principal + Interest</p>
               </div>
 
-              <div class="card-lift dark:bg-slate-900 bg-white rounded-2xl dark:border dark:border-slate-800 border border-slate-200 p-5 shadow-xl shadow-black/5">
+              <div class="card-lift dark:bg-slate-900/70 bg-white border dark:border-slate-800 border-slate-200 p-5 rounded-2xl shadow-xl shadow-black/5">
                 <div class="flex items-center gap-2 mb-3">
-                  <div class="w-7 h-7 rounded-lg bg-emerald-500/15 flex items-center justify-center">
+                  <div class="w-7 h-7 rounded-lg bg-emerald-500/10 flex items-center justify-center">
                     <svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                     </svg>
                   </div>
-                  <span class="text-xs font-semibold dark:text-slate-400 text-slate-500">Monthly EMI</span>
+                  <span class="text-[10px] font-bold dark:text-slate-400 text-slate-500 uppercase tracking-wide">Monthly EMI</span>
                 </div>
-                <p id="resEMI" class="metric-val text-2xl font-extrabold text-emerald-500 tabular-nums">₹0.00</p>
-                <p class="text-xs dark:text-slate-600 text-slate-400 mt-1">Equal monthly instalment</p>
+                <p id="resEMI" class="metric-val text-2xl font-black text-emerald-500 tabular-nums">₹0.00</p>
+                <p class="text-[10px] dark:text-slate-500 text-slate-400 mt-1">Equal monthly instalment</p>
               </div>
             </div>
 
-            <!-- Breakdown Card -->
-            <div class="dark:bg-slate-900 bg-white rounded-2xl dark:border dark:border-slate-800 border border-slate-200 p-6 shadow-xl shadow-black/5">
-              <div class="flex items-center justify-between mb-4">
-                <h3 class="font-bold dark:text-white text-slate-900 text-sm">Loan Breakdown</h3>
-                <span class="px-2.5 py-1 text-xs rounded-full dark:bg-slate-800 bg-slate-100
-                             dark:text-slate-400 text-slate-500 font-medium">Flat Rate Method</span>
+            <!-- Chart.js Analysis Row -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              
+              <!-- Donut Chart Split -->
+              <div class="dark:bg-slate-900/60 bg-white border dark:border-slate-800 border-slate-200 p-5 rounded-2xl shadow-xl shadow-black/5 flex flex-col items-center">
+                <h4 class="text-xs font-bold dark:text-slate-400 text-slate-500 uppercase tracking-wide self-start mb-4">Cost Distribution</h4>
+                <div class="w-40 h-40">
+                  <canvas id="costSplitChart"></canvas>
+                </div>
               </div>
 
-              <!-- Visual bar -->
+              <!-- Bar repayment Chart -->
+              <div class="dark:bg-slate-900/60 bg-white border dark:border-slate-800 border-slate-200 p-5 rounded-2xl shadow-xl shadow-black/5 flex flex-col">
+                <h4 class="text-xs font-bold dark:text-slate-400 text-slate-500 uppercase tracking-wide mb-4">Repayment Profile</h4>
+                <div class="flex-1 h-36">
+                  <canvas id="repaymentProfileChart"></canvas>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- Detail Breakdown Card -->
+            <div class="dark:bg-slate-900/60 bg-white border dark:border-slate-800 border-slate-200 p-6 rounded-2xl shadow-xl shadow-black/5">
+              <div class="flex items-center justify-between mb-4">
+                <h3 class="font-bold dark:text-white text-slate-900 text-sm">Loan Split Details</h3>
+                <span class="px-2.5 py-1 text-xs rounded-full dark:bg-slate-800 bg-slate-100 dark:text-slate-400 text-slate-500 font-medium">Flat Rate Method</span>
+              </div>
+
+              <!-- Visual progress bar -->
               <div class="mb-4">
-                <div class="flex rounded-full overflow-hidden h-2.5 mb-2">
-                  <div id="barPrincipal" class="bg-indigo-500 transition-all duration-700" style="width:89%"></div>
-                  <div id="barInterest"  class="bg-amber-500 transition-all duration-700" style="width:11%"></div>
+                <div class="flex rounded-full overflow-hidden h-2 mb-2">
+                  <div id="barPrincipal" class="bg-indigo-500 transition-all duration-700" style="width:0%"></div>
+                  <div id="barInterest"  class="bg-amber-500 transition-all duration-700" style="width:0%"></div>
                 </div>
                 <div class="flex gap-4 text-xs">
                   <div class="flex items-center gap-1.5"><div class="w-2 h-2 rounded-full bg-indigo-500"></div><span class="dark:text-slate-400 text-slate-500">Principal</span></div>
@@ -539,26 +477,27 @@
                 </div>
               </div>
 
-              <div class="space-y-2.5">
+              <!-- Table list -->
+              <div class="space-y-2 text-xs">
                 <div class="flex justify-between py-2 dark:border-b dark:border-slate-800 border-b border-slate-100">
-                  <span class="text-sm dark:text-slate-400 text-slate-500">Principal</span>
-                  <span id="dtPrincipal" class="text-sm font-semibold dark:text-white text-slate-900 tabular-nums">—</span>
+                  <span class="dark:text-slate-400 text-slate-500">Principal</span>
+                  <span id="dtPrincipal" class="font-semibold dark:text-white text-slate-900 tabular-nums">—</span>
                 </div>
                 <div class="flex justify-between py-2 dark:border-b dark:border-slate-800 border-b border-slate-100">
-                  <span class="text-sm dark:text-slate-400 text-slate-500">Annual Rate</span>
-                  <span id="dtRate" class="text-sm font-semibold dark:text-white text-slate-900 tabular-nums">—</span>
+                  <span class="dark:text-slate-400 text-slate-500">Annual Rate</span>
+                  <span id="dtRate" class="font-semibold dark:text-white text-slate-900 tabular-nums">—</span>
                 </div>
                 <div class="flex justify-between py-2 dark:border-b dark:border-slate-800 border-b border-slate-100">
-                  <span class="text-sm dark:text-slate-400 text-slate-500">Tenure</span>
-                  <span id="dtTenure" class="text-sm font-semibold dark:text-white text-slate-900 tabular-nums">—</span>
+                  <span class="dark:text-slate-400 text-slate-500">Tenure</span>
+                  <span id="dtTenure" class="font-semibold dark:text-white text-slate-900 tabular-nums">—</span>
                 </div>
                 <div class="flex justify-between py-2 dark:border-b dark:border-slate-800 border-b border-slate-100">
-                  <span class="text-sm dark:text-slate-400 text-slate-500">Total Interest</span>
-                  <span id="dtInterest" class="text-sm font-semibold text-amber-500 tabular-nums">—</span>
+                  <span class="dark:text-slate-400 text-slate-500">Total Interest</span>
+                  <span id="dtInterest" class="font-semibold text-amber-500 tabular-nums">—</span>
                 </div>
                 <div class="flex justify-between py-2">
-                  <span class="text-sm font-bold dark:text-white text-slate-900">Total Payable</span>
-                  <span id="dtPayable" class="text-sm font-bold dark:text-white text-slate-900 tabular-nums">—</span>
+                  <span class="font-bold dark:text-white text-slate-900">Total Payable</span>
+                  <span id="dtPayable" class="font-bold dark:text-white text-slate-900 tabular-nums">—</span>
                 </div>
               </div>
 
@@ -573,6 +512,16 @@
                 </p>
               </div>
             </div>
+
+            <!-- LLM Explanation Card (Glassmorphic) -->
+            <div id="llmExplanationCard" class="dark:bg-slate-900/60 bg-white border dark:border-slate-800 border-slate-200 p-5 rounded-2xl shadow-xl shadow-black/5">
+              <div class="flex items-center gap-2 mb-3">
+                <span class="text-base">🤖</span>
+                <span class="text-[10px] font-bold dark:text-slate-400 text-slate-500 uppercase tracking-wide">NVIDIA NIM Analysis</span>
+              </div>
+              <p id="loanExplanation" class="text-xs leading-relaxed dark:text-slate-350 text-slate-700 italic font-medium"></p>
+            </div>
+
           </div>
         </div>
       </div>
@@ -586,23 +535,29 @@
         <div class="flex items-center justify-center mb-8">
           <div class="flex items-center gap-2">
             <div id="si1" class="w-8 h-8 rounded-full bg-indigo-600 text-white text-sm font-bold flex items-center justify-center">1</div>
-            <span id="sl1" class="text-sm font-semibold dark:text-indigo-400 text-indigo-600">Enter Number</span>
+            <span id="sl1" class="text-xs font-semibold dark:text-indigo-400 text-indigo-600">Enter Number</span>
           </div>
-          <div class="w-10 h-px dark:bg-slate-700 bg-slate-300 mx-3"></div>
+          <div class="w-8 h-px dark:bg-slate-800 bg-slate-300 mx-2"></div>
           <div class="flex items-center gap-2">
-            <div id="si2" class="w-8 h-8 rounded-full dark:bg-slate-800 bg-slate-200 dark:text-slate-500 text-slate-400 text-sm font-bold flex items-center justify-center">2</div>
-            <span id="sl2" class="text-sm font-medium dark:text-slate-500 text-slate-400">Verify OTP</span>
+            <div id="si2" class="w-8 h-8 rounded-full dark:bg-slate-850 bg-slate-200 dark:text-slate-500 text-slate-400 text-sm font-bold flex items-center justify-center">2</div>
+            <span id="sl2" class="text-xs font-medium dark:text-slate-500 text-slate-400">Verify OTP</span>
           </div>
-          <div class="w-10 h-px dark:bg-slate-700 bg-slate-300 mx-3"></div>
+          <div class="w-8 h-px dark:bg-slate-850 bg-slate-300 mx-2"></div>
           <div class="flex items-center gap-2">
-            <div id="si3" class="w-8 h-8 rounded-full dark:bg-slate-800 bg-slate-200 dark:text-slate-500 text-slate-400 text-sm font-bold flex items-center justify-center">3</div>
-            <span id="sl3" class="text-sm font-medium dark:text-slate-500 text-slate-400">Authenticated</span>
+            <div id="si3" class="w-8 h-8 rounded-full dark:bg-slate-850 bg-slate-200 dark:text-slate-500 text-slate-400 text-sm font-bold flex items-center justify-center">3</div>
+            <span id="sl3" class="text-xs font-medium dark:text-slate-500 text-slate-400">Authenticated</span>
           </div>
         </div>
 
-        <!-- Phone Input Card -->
+        <!-- Demo Helper Banner -->
+        <div id="demoOtpBanner" class="hidden mb-6 p-4 rounded-2xl border dark:border-indigo-500/20 border-indigo-150 dark:bg-indigo-950/40 bg-indigo-50 text-center animate-pulse-soft">
+          <p class="text-[10px] dark:text-indigo-400 text-indigo-600 font-extrabold uppercase tracking-wider mb-1">🔑 Sandbox Testing Helper</p>
+          <p class="text-xs dark:text-slate-300 text-slate-700">Plaintext OTP generated: <span id="demoOtpVal" class="font-black dark:text-indigo-300 text-indigo-700 font-mono text-base tracking-widest select-all cursor-pointer bg-indigo-500/10 px-2 py-0.5 rounded ml-1">------</span></p>
+        </div>
+
+        <!-- Phone Input Card (Glassmorphic) -->
         <div id="otpPhoneCard"
-             class="dark:bg-slate-900 bg-white rounded-2xl dark:border dark:border-slate-800 border border-slate-200 p-8 shadow-xl shadow-black/5 animate-slide-up">
+             class="dark:bg-slate-900/60 bg-white border dark:border-slate-800 border-slate-200 p-8 rounded-2xl shadow-xl shadow-black/5 animate-slide-up">
           <div class="flex items-center gap-3 mb-6">
             <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600
                         flex items-center justify-center shadow-lg shadow-indigo-500/30">
@@ -612,8 +567,8 @@
               </svg>
             </div>
             <div>
-              <p class="font-bold dark:text-white text-slate-900">WhatsApp OTP Verification</p>
-              <p class="text-xs dark:text-slate-400 text-slate-500">Cryptographically secure 6-digit code</p>
+              <p class="font-bold dark:text-white text-slate-900 text-sm">WhatsApp OTP Verification</p>
+              <p class="text-[10px] dark:text-slate-500 text-slate-400 uppercase font-bold tracking-wide">Cryptographically secure delivery</p>
             </div>
           </div>
 
@@ -623,7 +578,7 @@
               Mobile Number
             </label>
             <div class="flex gap-2">
-              <div class="flex items-center gap-2 px-3 py-3 dark:bg-slate-800 bg-slate-50
+              <div class="flex items-center gap-2 px-3.5 py-3 dark:bg-slate-800 bg-slate-50
                           dark:border-slate-700 border-slate-200 border rounded-xl
                           dark:text-slate-300 text-slate-600 text-sm font-semibold flex-shrink-0">
                 <span>🇮🇳</span><span>+91</span>
@@ -635,22 +590,22 @@
                             focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
                             transition-all placeholder:font-normal placeholder:text-slate-400">
             </div>
-            <p class="text-xs dark:text-slate-500 text-slate-400 mt-2">OTP will be delivered via WhatsApp</p>
+            <p class="text-[10px] dark:text-slate-500 text-slate-400 mt-2">Simulated WhatsApp OTP will print to live activity feed</p>
           </div>
 
           <!-- Security badges -->
           <div class="grid grid-cols-3 gap-2 mb-6">
-            <div class="p-3 dark:bg-slate-800/60 bg-slate-50 rounded-xl text-center border dark:border-slate-700/50 border-slate-200">
-              <div class="text-xl mb-1">🔐</div>
-              <p class="text-xs dark:text-slate-400 text-slate-500 font-medium">HMAC-SHA256</p>
+            <div class="p-3 dark:bg-slate-800/60 bg-slate-50 rounded-xl text-center border dark:border-slate-850 border-slate-200">
+              <div class="text-lg mb-1">🔐</div>
+              <p class="text-[9px] dark:text-slate-500 text-slate-400 font-extrabold uppercase">HMAC-SHA256</p>
             </div>
-            <div class="p-3 dark:bg-slate-800/60 bg-slate-50 rounded-xl text-center border dark:border-slate-700/50 border-slate-200">
-              <div class="text-xl mb-1">⏱️</div>
-              <p class="text-xs dark:text-slate-400 text-slate-500 font-medium">3-min expiry</p>
+            <div class="p-3 dark:bg-slate-800/60 bg-slate-50 rounded-xl text-center border dark:border-slate-850 border-slate-200">
+              <div class="text-lg mb-1">⏱️</div>
+              <p class="text-[9px] dark:text-slate-500 text-slate-400 font-extrabold uppercase">3-Min Expire</p>
             </div>
-            <div class="p-3 dark:bg-slate-800/60 bg-slate-50 rounded-xl text-center border dark:border-slate-700/50 border-slate-200">
-              <div class="text-xl mb-1">🛡️</div>
-              <p class="text-xs dark:text-slate-400 text-slate-500 font-medium">Max 3 tries</p>
+            <div class="p-3 dark:bg-slate-800/60 bg-slate-50 rounded-xl text-center border dark:border-slate-850 border-slate-200">
+              <div class="text-lg mb-1">🛡️</div>
+              <p class="text-[9px] dark:text-slate-500 text-slate-400 font-extrabold uppercase">Max 3 Tries</p>
             </div>
           </div>
 
@@ -668,9 +623,8 @@
 
         <!-- Success Card (hidden) -->
         <div id="otpSuccessCard"
-             class="hidden dark:bg-slate-900 bg-white rounded-2xl
-                    dark:border dark:border-emerald-500/30 border border-emerald-200
-                    p-8 shadow-xl shadow-black/5 animate-bounce-in">
+             class="hidden dark:bg-slate-900/60 bg-white border dark:border-emerald-500/30 border-emerald-250
+                    p-8 rounded-2xl shadow-xl shadow-black/5 animate-bounce-in">
           <div class="text-center mb-6">
             <div class="w-16 h-16 rounded-full border-2 border-emerald-500 bg-emerald-500/10
                         flex items-center justify-center mx-auto mb-4">
@@ -683,7 +637,7 @@
           </div>
 
           <div class="dark:bg-slate-800 bg-slate-50 rounded-xl p-4 mb-4">
-            <p class="text-xs font-bold dark:text-slate-400 text-slate-500 uppercase tracking-wide mb-2">
+            <p class="text-[9px] font-extrabold dark:text-slate-400 text-slate-500 uppercase tracking-wider mb-2">
               Access Token (10-min validity)
             </p>
             <div class="flex items-start gap-2">
@@ -713,9 +667,8 @@
     <div id="panel-compliance" class="panel hidden">
       <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
 
-        <!-- ── Form ── -->
-        <div class="lg:col-span-2 dark:bg-slate-900 bg-white rounded-2xl
-                    dark:border dark:border-slate-800 border border-slate-200 p-6 shadow-xl shadow-black/5 h-fit">
+        <!-- Form (Glassmorphic) -->
+        <div class="lg:col-span-2 dark:bg-slate-900/60 bg-white border dark:border-slate-800 border-slate-200 p-6 rounded-2xl shadow-xl shadow-black/5 h-fit">
           <div class="flex items-center gap-3 mb-6">
             <div class="w-9 h-9 rounded-xl bg-violet-500/15 flex items-center justify-center">
               <svg class="w-5 h-5 text-violet-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -727,70 +680,72 @@
             </div>
             <div>
               <p class="font-bold dark:text-white text-slate-900 text-sm">Compliance Verification</p>
-              <p class="text-xs dark:text-slate-500 text-slate-400">RBI Fair Practices Code</p>
+              <p class="text-[10px] dark:text-slate-500 text-slate-400 font-bold uppercase tracking-wide">RBI Fair Practices Code</p>
             </div>
           </div>
 
           <div class="space-y-3">
             <div>
-              <label class="block text-xs font-bold dark:text-slate-400 text-slate-500 uppercase tracking-wide mb-1.5">Loan ID</label>
+              <label class="block text-[10px] font-bold dark:text-slate-400 text-slate-500 uppercase tracking-wide mb-1.5">Loan ID</label>
               <input type="text" id="cLoanId" value="LOAN-2024-00001"
-                     class="w-full px-3 py-2.5 dark:bg-slate-800 bg-slate-50 dark:border-slate-700 border-slate-200 border rounded-lg
-                            dark:text-white text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all">
+                     class="w-full px-3 py-2.5 dark:bg-slate-800 bg-slate-50 dark:border-slate-750 border-slate-200 border rounded-lg
+                            dark:text-white text-slate-900 text-xs focus:outline-none focus:ring-1 focus:ring-violet-500 transition-all font-semibold">
             </div>
             <div>
-              <label class="block text-xs font-bold dark:text-slate-400 text-slate-500 uppercase tracking-wide mb-1.5">Borrower Name</label>
+              <label class="block text-[10px] font-bold dark:text-slate-400 text-slate-500 uppercase tracking-wide mb-1.5">Borrower Name</label>
               <input type="text" id="cBorrower" value="Rajesh Kumar"
-                     class="w-full px-3 py-2.5 dark:bg-slate-800 bg-slate-50 dark:border-slate-700 border-slate-200 border rounded-lg
-                            dark:text-white text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all">
+                     class="w-full px-3 py-2.5 dark:bg-slate-800 bg-slate-50 dark:border-slate-750 border-slate-200 border rounded-lg
+                            dark:text-white text-slate-900 text-xs focus:outline-none focus:ring-1 focus:ring-violet-500 transition-all font-semibold">
             </div>
             <div class="grid grid-cols-2 gap-3">
               <div>
-                <label class="block text-xs font-bold dark:text-slate-400 text-slate-500 uppercase tracking-wide mb-1.5">Principal (₹)</label>
-                <input type="number" id="cPrincipal" value="40000" step="1000"
-                       class="w-full px-3 py-2.5 dark:bg-slate-800 bg-slate-50 dark:border-slate-700 border-slate-200 border rounded-lg
-                              dark:text-white text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all">
+                <label class="block text-[10px] font-bold dark:text-slate-400 text-slate-500 uppercase tracking-wide mb-1.5">Principal (₹)</label>
+                <input type="number" id="cPrincipal" value="40000" step="5000"
+                       class="w-full px-3 py-2.5 dark:bg-slate-800 bg-slate-50 dark:border-slate-750 border-slate-200 border rounded-lg
+                              dark:text-white text-slate-900 text-xs focus:outline-none focus:ring-1 focus:ring-violet-500 transition-all font-semibold">
               </div>
               <div>
-                <label class="block text-xs font-bold dark:text-slate-400 text-slate-500 uppercase tracking-wide mb-1.5">Flat Rate (%)</label>
+                <label class="block text-[10px] font-bold dark:text-slate-400 text-slate-500 uppercase tracking-wide mb-1.5">Flat Rate (%)</label>
                 <input type="number" id="cRate" value="12" step="0.5"
-                       class="w-full px-3 py-2.5 dark:bg-slate-800 bg-slate-50 dark:border-slate-700 border-slate-200 border rounded-lg
-                              dark:text-white text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all">
+                       class="w-full px-3 py-2.5 dark:bg-slate-800 bg-slate-50 dark:border-slate-750 border-slate-200 border rounded-lg
+                              dark:text-white text-slate-900 text-xs focus:outline-none focus:ring-1 focus:ring-violet-500 transition-all font-semibold">
               </div>
             </div>
             <div>
-              <label class="block text-xs font-bold dark:text-slate-400 text-slate-500 uppercase tracking-wide mb-1.5">Tenure (Months)</label>
+              <label class="block text-[10px] font-bold dark:text-slate-400 text-slate-500 uppercase tracking-wide mb-1.5">Tenure (Months)</label>
               <input type="number" id="cTenure" value="12"
-                     class="w-full px-3 py-2.5 dark:bg-slate-800 bg-slate-50 dark:border-slate-700 border-slate-200 border rounded-lg
-                            dark:text-white text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all">
+                     class="w-full px-3 py-2.5 dark:bg-slate-800 bg-slate-50 dark:border-slate-750 border-slate-200 border rounded-lg
+                            dark:text-white text-slate-900 text-xs focus:outline-none focus:ring-1 focus:ring-violet-500 transition-all font-semibold">
             </div>
 
             <!-- Audit Evidence Links -->
             <div class="pt-3 border-t dark:border-slate-800 border-slate-100">
               <div class="flex items-center justify-between mb-2">
-                <label class="block text-xs font-extrabold dark:text-slate-400 text-slate-500 uppercase tracking-wider">
-                  Audit Evidence Links (Min 4)
+                <label class="block text-[10px] font-bold dark:text-slate-400 text-slate-500 uppercase tracking-wider">
+                  Evidence URLs (Min 4)
                 </label>
-                <span id="evidenceCounter" class="text-xs font-extrabold dark:text-indigo-400 text-indigo-600">4 / 4</span>
+                <span id="evidenceCount" class="text-xs font-black dark:text-indigo-400 text-indigo-600">0/4</span>
               </div>
 
-              <div id="evidenceList" class="space-y-2">
-                <input type="url" value="https://evidence.nbfc.com/kfs-signed/LOAN-2024-00001" placeholder="Evidence URL 1"
-                       class="ev-link w-full px-3 py-2 dark:bg-slate-800 bg-slate-50 dark:border-slate-700 border-slate-200 border rounded-lg dark:text-slate-300 text-slate-700 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
-                <input type="url" value="https://evidence.nbfc.com/fpc-disclosure/LOAN-2024-00001" placeholder="Evidence URL 2"
-                       class="ev-link w-full px-3 py-2 dark:bg-slate-800 bg-slate-50 dark:border-slate-700 border-slate-200 border rounded-lg dark:text-slate-300 text-slate-700 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
-                <input type="url" value="https://evidence.nbfc.com/borrower-consent/LOAN-2024-00001" placeholder="Evidence URL 3"
-                       class="ev-link w-full px-3 py-2 dark:bg-slate-800 bg-slate-50 dark:border-slate-700 border-slate-200 border rounded-lg dark:text-slate-300 text-slate-700 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
-                <input type="url" value="https://evidence.nbfc.com/credit-assessment/LOAN-2024-00001" placeholder="Evidence URL 4"
-                       class="ev-link w-full px-3 py-2 dark:bg-slate-800 bg-slate-50 dark:border-slate-700 border-slate-200 border rounded-lg dark:text-slate-300 text-slate-700 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
+              <!-- List container -->
+              <div id="auditLinksBox" class="space-y-2 mb-2"></div>
+
+              <button onclick="ComplianceWorkflow.addLink()"
+                      class="text-[10px] font-bold text-indigo-500 hover:text-indigo-400 flex items-center gap-1">
+                <span>＋</span> Add Link
+              </button>
+
+              <div id="gateWarn"
+                   class="mt-3 px-3 py-2 dark:bg-red-500/5 bg-red-50 border dark:border-red-500/10 border-red-150 rounded-lg">
+                <p class="text-[10px] dark:text-red-400 text-red-700 leading-normal">
+                  ⚠️ <span class="font-bold">COMPLIANCE GATE LOCKED:</span> 4 evidence links must be uploaded before audit logs are generated.
+                </p>
               </div>
 
-              <!-- Gate satisfied warning -->
-              <div id="gateSatisfiedBadge"
-                   class="hidden mt-2 px-3 py-2 dark:bg-emerald-500/10 bg-emerald-50
-                          dark:border dark:border-emerald-500/20 border border-emerald-100 rounded-lg">
-                <p class="text-xs dark:text-emerald-400 text-emerald-600 font-medium">
-                  ✅ Hard gate satisfied — ready for compliance verification
+              <div id="gateOK"
+                   class="hidden mt-3 px-3 py-2 dark:bg-emerald-500/10 bg-emerald-50 border dark:border-emerald-500/20 border-emerald-150 rounded-lg">
+                <p class="text-[10px] dark:text-emerald-400 text-emerald-600 leading-normal">
+                  ✅ <span class="font-bold">GATE UNLOCKED:</span> Compliance requirements satisfied.
                 </p>
               </div>
             </div>
@@ -799,7 +754,7 @@
           <button id="compBtn" onclick="ComplianceWorkflow.verify()"
                   class="w-full mt-5 flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-white
                          bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500
-                         shadow-lg shadow-violet-500/25 active:scale-95 transition-all duration-200
+                         shadow-lg shadow-violet-500/20 active:scale-95 transition-all duration-200
                          disabled:opacity-60 disabled:cursor-not-allowed">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -811,7 +766,7 @@
           </button>
         </div>
 
-        <!-- ── Results ── -->
+        <!-- Results (Glassmorphic) -->
         <div class="lg:col-span-3 flex flex-col gap-4">
 
           <!-- Placeholder -->
@@ -826,10 +781,10 @@
               </svg>
             </div>
             <p class="font-semibold dark:text-slate-500 text-slate-400">KFS &amp; audit trail will appear here</p>
-            <p class="text-sm dark:text-slate-600 text-slate-300 mt-1">Add 4+ audit links and verify</p>
+            <p class="text-xs dark:text-slate-600 text-slate-300 mt-1">Provide 4+ audit links and verify</p>
           </div>
 
-          <!-- Results (hidden until verify) -->
+          <!-- Results -->
           <div id="compResults" class="hidden flex-col gap-4">
 
             <!-- Approval Banner -->
@@ -838,14 +793,14 @@
               <div class="flex-1 min-w-0">
                 <div class="flex flex-wrap items-center gap-2 mb-1">
                   <h3 id="approvalTitle" class="font-extrabold text-lg"></h3>
-                  <span id="approvalBadge" class="px-2.5 py-0.5 rounded-full text-xs font-extrabold"></span>
+                  <span id="approvalBadge" class="px-2.5 py-0.5 rounded-full text-[10px] font-black"></span>
                 </div>
-                <p id="approvalReason" class="text-sm leading-relaxed opacity-75"></p>
+                <p id="approvalReason" class="text-xs leading-relaxed opacity-75"></p>
               </div>
             </div>
 
             <!-- Delivery Tracker -->
-            <div class="dark:bg-slate-900 bg-white rounded-2xl dark:border dark:border-slate-800 border border-slate-200 p-5 shadow-xl shadow-black/5">
+            <div class="dark:bg-slate-900/60 bg-white border dark:border-slate-800 border-slate-200 p-5 rounded-2xl shadow-xl shadow-black/5">
               <p class="font-bold dark:text-white text-slate-900 text-sm mb-4">KFS Delivery Status</p>
               <div class="flex items-center">
                 <!-- Step 1 -->
@@ -856,7 +811,7 @@
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
                     </svg>
                   </div>
-                  <span class="text-xs font-semibold dark:text-slate-500 text-slate-400">Sent</span>
+                  <span class="text-[10px] font-semibold dark:text-slate-500 text-slate-400">Sent</span>
                 </div>
                 <div id="dc1" class="connector"></div>
                 <!-- Step 2 -->
@@ -867,7 +822,7 @@
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
                     </svg>
                   </div>
-                  <span class="text-xs font-semibold dark:text-slate-500 text-slate-400">Delivered</span>
+                  <span class="text-[10px] font-semibold dark:text-slate-500 text-slate-400">Delivered</span>
                 </div>
                 <div id="dc2" class="connector"></div>
                 <!-- Step 3 -->
@@ -880,16 +835,16 @@
                                8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
                     </svg>
                   </div>
-                  <span class="text-xs font-semibold dark:text-slate-500 text-slate-400">Read</span>
+                  <span class="text-[10px] font-semibold dark:text-slate-500 text-slate-400">Read</span>
                 </div>
               </div>
             </div>
 
             <!-- KFS Accordion -->
-            <div class="dark:bg-slate-900 bg-white rounded-2xl dark:border dark:border-slate-800 border border-slate-200 shadow-xl shadow-black/5 overflow-hidden">
+            <div id="kfsContainer" class="dark:bg-slate-900/60 bg-white border dark:border-slate-800 border-slate-200 rounded-2xl shadow-xl shadow-black/5 overflow-hidden">
               <button onclick="ComplianceWorkflow.toggleKFS()"
                       class="w-full flex items-center justify-between p-5
-                             dark:hover:bg-slate-800/50 hover:bg-slate-50 transition-colors">
+                             dark:hover:bg-slate-850 hover:bg-slate-50 transition-colors">
                 <div class="flex items-center gap-3">
                   <div class="w-8 h-8 rounded-lg bg-violet-500/15 flex items-center justify-center">
                     <svg class="w-4 h-4 text-violet-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -900,7 +855,7 @@
                   </div>
                   <div class="text-left">
                     <p class="font-bold dark:text-white text-slate-900 text-sm">Key Fact Statement (KFS)</p>
-                    <p id="kfsDocLabel" class="text-xs dark:text-slate-500 text-slate-400">RBI FPC Mandated — click to expand</p>
+                    <p id="kfsDocLabel" class="text-[10px] dark:text-slate-500 text-slate-400 uppercase font-bold">RBI FPC Mandated</p>
                   </div>
                 </div>
                 <svg id="kfsChevron" class="w-4 h-4 dark:text-slate-500 text-slate-400 transition-transform duration-200"
@@ -910,34 +865,52 @@
               </button>
 
               <div id="kfsBody" class="hidden px-5 pb-5">
-                <div id="kfsFields" class="space-y-2 mb-4"></div>
-                <!-- APR Breakdown -->
-                <div class="p-4 dark:bg-slate-800 bg-slate-50 rounded-xl">
-                  <p class="text-xs font-extrabold dark:text-slate-300 text-slate-600 uppercase tracking-wider mb-3">
-                    APR Transparency (~21.5%)
-                  </p>
-                  <div class="space-y-2">
-                    <div class="flex justify-between text-xs">
-                      <span class="dark:text-slate-400 text-slate-500">Flat Interest Rate</span>
-                      <span id="kfsFlat" class="dark:text-white text-slate-900 font-semibold">12.0%</span>
-                    </div>
-                    <div class="flex justify-between text-xs">
-                      <span class="dark:text-slate-400 text-slate-500">Effective APR (Reducing Balance)</span>
-                      <span id="kfsAPR" class="font-extrabold text-amber-500">~21.46%</span>
-                    </div>
-                    <div class="flex justify-between text-xs">
-                      <span class="dark:text-slate-400 text-slate-500">Regulatory Basis</span>
-                      <span class="dark:text-slate-300 text-slate-600 font-semibold">RBI FPC 2023</span>
+                
+                <!-- Download Button -->
+                <div class="flex justify-end mb-4">
+                  <button id="downloadKfsBtn" onclick="ComplianceWorkflow.downloadKFS()"
+                          class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-700 bg-slate-800 text-slate-300 hover:text-white hover:border-slate-500 transition-all">
+                    <span>📥</span> Download KFS PDF
+                  </button>
+                </div>
+
+                <div id="kfsPrintArea" class="p-5 dark:bg-slate-950 bg-slate-100 border dark:border-slate-850 border-slate-200 rounded-xl space-y-4">
+                  <div class="text-center border-b dark:border-slate-850 border-slate-200 pb-3">
+                    <h4 class="font-bold text-xs uppercase tracking-widest text-slate-400">Key Fact Statement (KFS)</h4>
+                    <p class="text-[9px] text-slate-500 mt-1">Issued by FinFlow NBFC Platform under RBI Fair Practices Guidelines</p>
+                  </div>
+                  
+                  <div id="kfsFields" class="space-y-2"></div>
+                  
+                  <!-- APR Breakdown -->
+                  <div class="pt-3 border-t dark:border-slate-850 border-slate-200">
+                    <p class="text-[9px] font-black dark:text-slate-400 text-slate-500 uppercase tracking-wider mb-2">
+                      Interest Rate Disclosures
+                    </p>
+                    <div class="space-y-1.5 text-xs">
+                      <div class="flex justify-between">
+                        <span class="dark:text-slate-400 text-slate-500">Interest Calculation Basis</span>
+                        <span class="dark:text-slate-300 text-slate-700 font-semibold">Flat Interest Rate</span>
+                      </div>
+                      <div class="flex justify-between">
+                        <span class="dark:text-slate-400 text-slate-500">Nominal Interest Rate</span>
+                        <span id="kfsFlat" class="dark:text-white text-slate-950 font-semibold">12.0%</span>
+                      </div>
+                      <div class="flex justify-between">
+                        <span class="dark:text-slate-400 text-slate-500">Effective Annual Percentage Rate (APR)</span>
+                        <span id="kfsAPR" class="font-extrabold text-amber-500">~21.46%</span>
+                      </div>
                     </div>
                   </div>
                 </div>
+
               </div>
             </div>
 
             <!-- Audit Trail -->
-            <div class="dark:bg-slate-900 bg-white rounded-2xl dark:border dark:border-slate-800 border border-slate-200 p-5 shadow-xl shadow-black/5">
+            <div class="dark:bg-slate-900/60 bg-white border dark:border-slate-800 border-slate-200 p-5 rounded-2xl shadow-xl shadow-black/5">
               <div class="flex items-center gap-3 mb-4">
-                <div class="w-8 h-8 rounded-lg bg-emerald-500/15 flex items-center justify-center">
+                <div class="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
                   <svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                           d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0
@@ -946,7 +919,7 @@
                 </div>
                 <div>
                   <p class="font-bold dark:text-white text-slate-900 text-sm">Immutable Audit Trail</p>
-                  <p class="text-xs dark:text-slate-500 text-slate-400">15-year retention · SHA-256 tamper-evident</p>
+                  <p class="text-[10px] dark:text-slate-500 text-slate-400 font-bold uppercase">15-year retention · SHA-256 tamper-evident</p>
                 </div>
               </div>
               <div id="auditTrailFields" class="space-y-2"></div>
@@ -960,28 +933,51 @@
   </main>
 
   <!-- ──────────────────────────────────────────── FOOTER ────────── -->
-  <footer class="dark:border-t dark:border-slate-800 border-t border-slate-200 mt-8 py-6
-                 dark:bg-slate-950 bg-slate-50">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
+  <footer class="dark:bg-slate-950 bg-white border-t dark:border-slate-900 border-slate-200 py-6 mt-12">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
       <div class="flex items-center gap-2">
         <div class="w-6 h-6 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center">
-          <span class="text-white text-xs font-bold">FF</span>
+          <span class="text-white text-[10px] font-black">FF</span>
         </div>
-        <span class="text-xs dark:text-slate-500 text-slate-400 font-medium">FinFlow NBFC Platform v1.0</span>
+        <span class="text-xs dark:text-slate-500 text-slate-400 font-bold uppercase tracking-wide">FinFlow Platform v1.1</span>
       </div>
-      <div class="flex items-center gap-3 text-xs dark:text-slate-600 text-slate-400 flex-wrap justify-center">
+      <div class="flex items-center gap-3 text-[10px] dark:text-slate-600 text-slate-400 flex-wrap justify-center font-bold uppercase tracking-wider">
         <span>RBI FPC Compliant</span>
-        <span class="dark:text-slate-700 text-slate-300">•</span>
+        <span class="dark:text-slate-800 text-slate-200">•</span>
         <span>15-Year Audit Trail</span>
-        <span class="dark:text-slate-700 text-slate-300">•</span>
-        <span>HMAC-SHA256 Secured</span>
-        <span class="dark:text-slate-700 text-slate-300">•</span>
-        <span>CrewAI Agents</span>
+        <span class="dark:text-slate-800 text-slate-200">•</span>
+        <span>NVIDIA NIM Powered</span>
       </div>
     </div>
   </footer>
 
 </div><!-- end app shell -->
+
+<!-- ══════════════════════════ AGENT ACTIVITY DRAWER ════════════ -->
+<div id="terminalDrawer"
+     class="fixed top-0 right-0 h-full w-96 z-[100] transform translate-x-full transition-transform duration-350 ease-in-out
+            dark:bg-slate-950/98 bg-slate-900/98 border-l dark:border-slate-850 border-slate-700 shadow-2xl flex flex-col backdrop-blur-md">
+  
+  <!-- Header -->
+  <div class="p-4 dark:bg-slate-900 bg-slate-850 border-b dark:border-slate-850 border-slate-700 flex justify-between items-center">
+    <div class="flex items-center gap-2">
+      <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+      <span class="font-bold text-xs uppercase tracking-widest text-slate-200">Agent Activity Logs</span>
+    </div>
+    <button id="closeTerminalBtn" class="text-slate-400 hover:text-white text-xl font-bold leading-none p-1">×</button>
+  </div>
+  
+  <!-- Monospace logs body -->
+  <div id="terminalBody" class="flex-1 p-4 overflow-y-auto space-y-2.5 log-stream text-[10px] leading-relaxed dark:text-slate-350 text-slate-300">
+    <div class="text-slate-500 font-semibold">[System Log] Activity Feed initialized. Welcome to FinFlow SandBox.</div>
+  </div>
+  
+  <!-- Footer controls -->
+  <div class="p-3 dark:bg-slate-900 bg-slate-850 border-t dark:border-slate-850 border-slate-700 flex justify-between text-[9px] font-bold uppercase text-slate-500 tracking-wider">
+    <span>Live Feed</span>
+    <button onclick="document.getElementById('terminalBody').innerHTML = '';" class="hover:text-slate-300 transition-colors">Clear Output</button>
+  </div>
+</div>
 
 <script src="/static/app.js"></script>
 </body>

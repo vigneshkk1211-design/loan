@@ -187,7 +187,9 @@ def send_otp(phone_number: str) -> Dict[str, Any]:
         "reference_id": reference_id,
         "expires_in": OTP_TTL_SECONDS,
         "max_attempts": MAX_VERIFY_ATTEMPTS,
+        "demo_otp": otp_str,
     }
+
 
 
 def verify_otp(phone_number: str, otp: str, reference_id: str) -> Dict[str, Any]:
@@ -316,4 +318,6 @@ def resend_otp(phone_number: str, reference_id: str) -> Dict[str, Any]:
         "reference_id": new_ref,
         "retry_after": next_backoff,
         "expires_in": OTP_TTL_SECONDS,
+        "demo_otp": result.get("demo_otp"),
     }
+
