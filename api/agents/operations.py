@@ -26,8 +26,45 @@ import secrets
 import time
 import uuid
 from typing import Any, Dict
+import jwt
+import openai
 
-from jose import jwt
+# ── NVIDIA NIM Configuration ─────────────────────────────────────────────────
+NVIDIA_API_KEY = os.environ.get(
+    "NVIDIA_API_KEY", 
+    "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"
+)
+NVIDIA_BASE_URL = os.environ.get(
+    "NVIDIA_BASE_URL", 
+    "https://integrate.api.nvidia.com/v1"
+)
+LLM_MODEL = os.environ.get(
+    "LLM_MODEL", 
+    "meta/llama-3.3-70b-instruct"
+)
+
+def _call_nvidia_nim(system_prompt: str, user_prompt: str) -> str:
+    """Helper to call NVIDIA NIM using standard openai SDK with graceful fallback."""
+    try:
+        client = openai.OpenAI(
+            api_key=NVIDIA_API_KEY,
+            base_url=NVIDIA_BASE_URL,
+        )
+        response = client.chat.completions.create(
+            model=LLM_MODEL,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            max_tokens=256,
+            temperature=0.2,
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as exc:
+        import sys
+        print(f"[LLM FALLBACK] NVIDIA NIM call failed: {exc}", file=sys.stderr)
+        return ""
+
 
 # ── Configuration ────────────────────────────────────────────────────────────
 
@@ -67,18 +104,18 @@ def _hmac_otp(otp: str, salt: str) -> str:
 def _send_whatsapp_otp(phone_number: str, otp: str) -> None:
     """
     🔌 Placeholder — wire up Twilio/Meta Cloud API here.
-
-    Example (Twilio):
-        from twilio.rest import Client
-        client = Client(TWILIO_SID, TWILIO_TOKEN)
-        client.messages.create(
-            from_="whatsapp:+14155238886",
-            to=f"whatsapp:{phone_number}",
-            body=f"Your OTP is {otp}. Valid for 3 minutes. Do not share.",
-        )
     """
-    # For development: print to console
-    print(f"[OTP] Would send '{otp}' to {phone_number} via WhatsApp")
+    # Use NVIDIA NIM to generate a personalized notification message
+    message_body = _call_nvidia_nim(
+        system_prompt="You are a Field Collection Lead who designs secure real-time OTP collection workflows.",
+        user_prompt=f"Generate a friendly WhatsApp message containing the OTP {otp} for a borrower. Tell them it is valid for 3 minutes and not to share it. Keep it strictly under 2 sentences."
+    )
+    if not message_body:
+        message_body = f"Your FinFlow OTP is {otp}. Valid for 3 minutes. Do not share."
+
+    # Print to console/logs (simulating SMS/WhatsApp gateway delivery)
+    print(f"[OTP WhatsApp Notification] to {phone_number}: {message_body}")
+
 
 
 def _format_otp(raw: int) -> str:

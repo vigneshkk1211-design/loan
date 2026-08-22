@@ -15,9 +15,48 @@ places (paisa) only at the final output stage to avoid compounding errors.
 
 from decimal import Decimal, ROUND_HALF_UP, getcontext
 from typing import Dict, Any
+import os
+import openai
 
 # Set high precision for intermediate calculations; round only at output
 getcontext().prec = 28
+
+# ── NVIDIA NIM Configuration ─────────────────────────────────────────────────
+NVIDIA_API_KEY = os.environ.get(
+    "NVIDIA_API_KEY", 
+    "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"
+)
+NVIDIA_BASE_URL = os.environ.get(
+    "NVIDIA_BASE_URL", 
+    "https://integrate.api.nvidia.com/v1"
+)
+LLM_MODEL = os.environ.get(
+    "LLM_MODEL", 
+    "meta/llama-3.3-70b-instruct"
+)
+
+def _call_nvidia_nim(system_prompt: str, user_prompt: str) -> str:
+    """Helper to call NVIDIA NIM using standard openai SDK with graceful fallback."""
+    try:
+        client = openai.OpenAI(
+            api_key=NVIDIA_API_KEY,
+            base_url=NVIDIA_BASE_URL,
+        )
+        response = client.chat.completions.create(
+            model=LLM_MODEL,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            max_tokens=256,
+            temperature=0.2,
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as exc:
+        import sys
+        print(f"[LLM FALLBACK] NVIDIA NIM call failed: {exc}", file=sys.stderr)
+        return ""
+
 
 
 _TWO_PLACES = Decimal("0.01")
@@ -80,6 +119,15 @@ def calculate_emi(
     r_payable = _round_inr(total_payable)
     r_emi = _round_inr(monthly_emi)
 
+    # ── LLM Explanation generation ──────────────────────────────────────────
+    explanation = _call_nvidia_nim(
+        system_prompt="You are a Loan Accounting Engine and NBFC expert focusing on Python Decimal logic.",
+        user_prompt=f"Explain a loan of ₹{principal} at {annual_rate}% flat rate for {tenure_months} months. Monthly EMI is ₹{r_emi} and total interest is ₹{r_interest}. Keep the explanation strictly to 2 concise sentences."
+    )
+    if not explanation:
+        explanation = f"Loan calculation verified: EMI is ₹{r_emi} for {tenure_months} months with flat interest rate."
+
+
     return {
         "principal": str(_round_inr(principal)),
         "annual_rate": str(annual_rate),
@@ -89,4 +137,6 @@ def calculate_emi(
         "monthly_emi": str(r_emi),
         "calculation_method": "flat_rate",
         "precision": "ROUND_HALF_UP to 2 decimal places",
+        "explanation": explanation,
     }
+

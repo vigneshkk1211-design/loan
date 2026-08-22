@@ -67,3 +67,8 @@ class LoanResponse(BaseModel):
         default="ROUND_HALF_UP to 2 decimal places",
         description="Rounding strategy applied",
     )
+    explanation: str = Field(
+        ...,
+        description="LLM explanation of the loan calculation details",
+    )
+

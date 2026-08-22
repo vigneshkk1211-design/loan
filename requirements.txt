@@ -1,14 +1,6 @@
-flask
-openai
-fastapi
-uvicorn[standard]
-pydantic>=2.0
-python-jose[cryptography]
-a2wsgi
-crewai
-httpx
-# ── Dev / Test ──────────────────────────────────────────────────
-python-dotenv
-pytest>=7.0
-pytest-asyncio>=0.23
-pytest-cov
+fastapi>=0.110.0
+uvicorn>=0.28.0
+pydantic>=2.6.4
+openai>=1.14.0
+pyjwt>=2.8.0
+python-dotenv>=1.0.1

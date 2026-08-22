@@ -17,7 +17,8 @@ import time
 import uuid
 
 import pytest
-from jose import jwt
+import jwt
+
 
 from api.agents.operations import (
     OTPError,
