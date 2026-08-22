@@ -1,5 +1,5 @@
 /**
- * FinFlow NBFC Dashboard — app.js
+ * TrustLend AI Dashboard — app.js
  * ═══════════════════════════════════════════════════════════════
  * Modules:
  *   ThemeManager      — dark/light toggle with localStorage
@@ -86,7 +86,7 @@ const TerminalLog = {
     this.toggleBtn.addEventListener('click', () => this.toggle());
     this.closeBtn.addEventListener('click', () => this.close());
     
-    this.log('system', 'FinFlow Platform logs connected.', 'system');
+    this.log('system', 'TrustLend AI Platform logs connected.', 'system');
   },
 
   toggle() {

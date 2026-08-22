@@ -111,7 +111,7 @@ def _send_whatsapp_otp(phone_number: str, otp: str) -> None:
         user_prompt=f"Generate a friendly WhatsApp message containing the OTP {otp} for a borrower. Tell them it is valid for 3 minutes and not to share it. Keep it strictly under 2 sentences."
     )
     if not message_body:
-        message_body = f"Your FinFlow OTP is {otp}. Valid for 3 minutes. Do not share."
+        message_body = f"Your TrustLend AI OTP is {otp}. Valid for 3 minutes. Do not share."
 
     # Print to console/logs (simulating SMS/WhatsApp gateway delivery)
     print(f"[OTP WhatsApp Notification] to {phone_number}: {message_body}")
