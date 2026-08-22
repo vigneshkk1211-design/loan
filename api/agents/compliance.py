@@ -31,6 +31,28 @@ from decimal import Decimal, ROUND_HALF_UP
 from pathlib import Path
 from typing import Any, Dict, List
 
+# Try to import CrewAI components cleanly for NVIDIA NIM LLM integration
+try:
+    from crewai import Agent, Task, Crew, LLM
+    CREWAI_AVAILABLE = True
+except ImportError:
+    CREWAI_AVAILABLE = False
+
+# ── CrewAI / NVIDIA NIM Configuration ─────────────────────────────────────────
+NVIDIA_API_KEY = os.environ.get(
+    "NVIDIA_API_KEY", 
+    "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"
+)
+NVIDIA_BASE_URL = os.environ.get(
+    "NVIDIA_BASE_URL", 
+    "https://integrate.api.nvidia.com/v1"
+)
+LLM_MODEL = os.environ.get(
+    "LLM_MODEL", 
+    "meta/llama-3.3-70b-instruct"
+)
+
+
 # ── Configuration ────────────────────────────────────────────────────────────
 
 MINIMUM_AUDIT_LINKS: int = 4
@@ -242,6 +264,63 @@ def verify_compliance(
             f"Compliance verified. {received_count} audit link(s) confirmed. "
             "KFS generated and delivery initiated. Loan may proceed to disbursement."
         )
+
+    # Try to generate detailed compliance review narrative using CrewAI agent with NVIDIA NIM LLM
+    if CREWAI_AVAILABLE:
+        try:
+            # OpenAI-compatible NIM LLM instance
+            my_llm = LLM(
+                model=LLM_MODEL,
+                base_url=NVIDIA_BASE_URL,
+                api_key=NVIDIA_API_KEY,
+            )
+
+            # Define CrewAI Agent
+            compliance_agent = Agent(
+                role="RBI Compliance Specialist",
+                goal="Ensure MFI and NBFC loans strictly comply with RBI Fair Practices Code and verify audit disclosures.",
+                backstory="You are an expert in RBI regulations, Fair Practices Code (FPC), and Key Fact Statement (KFS) audits.",
+                verbose=False,
+                llm=my_llm,
+            )
+
+            # Define Task
+            review_task = Task(
+                description=(
+                    f"Review the loan application details:\n"
+                    f"- Loan ID: {loan_id}\n"
+                    f"- Borrower: {borrower_name}\n"
+                    f"- Principal: {principal}\n"
+                    f"- Annual Rate: {annual_rate}%\n"
+                    f"- Tenure: {tenure_months} months\n"
+                    f"- Approved Status: {approved}\n"
+                    f"- Base Reason: {reason}\n"
+                    f"- Audit Disclosures: {', '.join(audit_links)}\n\n"
+                    f"Write a concise, professional RBI compliance audit summary (max 3 sentences) confirming the status and audit trails."
+                ),
+                expected_output="A concise paragraph summarizing the RBI compliance audit review.",
+                agent=compliance_agent,
+            )
+
+            # Execute Crew
+            crew = Crew(
+                agents=[compliance_agent],
+                tasks=[review_task],
+                verbose=False,
+            )
+            crew_result = crew.kickoff()
+            if crew_result:
+                raw_text = str(crew_result).strip()
+                if raw_text:
+                    reason = raw_text
+        except Exception as exc:
+            # Fallback handling so the application returns results smoothly
+            import sys
+            print(f"[LLM FALLBACK] CrewAI/NVIDIA NIM run failed: {exc}", file=sys.stderr)
+    else:
+        import sys
+        print("[LLM FALLBACK] CrewAI library not available. Using fallback reason.", file=sys.stderr)
+
 
     # Step 4 — Build immutable audit trail entry
     trail_id = f"AUDIT-{uuid.uuid4().hex.upper()}"
